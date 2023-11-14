@@ -34,16 +34,18 @@ def launch_setup(context, *args, **kwargs):
         "publish_transforms_updates": True,
     }
 
+    parameters_dict = moveit_config.to_dict()
+    parameters_dict["use_sim_time"] = True
+    parameters_dict.update(trajectory_execution)
+    parameters_dict.update(planning_scene_monitor_parameters)
+
     # Move group node
     move_group_node = Node(
         package="moveit_ros_move_group",
         executable="move_group",
         output="screen",
         parameters=[
-            moveit_config.to_dict(),
-            trajectory_execution,
-            planning_scene_monitor_parameters,
-            {"use_sim_time": True},
+            parameters_dict
         ],
     )    
 
