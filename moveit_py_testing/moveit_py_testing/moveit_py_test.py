@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 
 from copy import copy
+from math import e, pi
 from multiprocessing import get_logger
-from os import link
+from moveit import PlanningSceneMonitor
 import rclpy
+import pyassimp
+import trimesh
+import tf2_ros
 from rclpy.node import Node
 from moveit.core.robot_state import RobotState, robotStateToRobotStateMsg
 from moveit.core.robot_trajectory import RobotTrajectory
@@ -12,11 +16,17 @@ from moveit.planning import (
 )
 from rclpy.logging import get_logger
 from time import sleep
-from geometry_msgs.msg import PoseStamped, Pose
+from geometry_msgs.msg import PoseStamped, Pose, Point
 from std_msgs.msg import Header
 from moveit_msgs.srv import GetCartesianPath, GetPositionFK
-from moveit_msgs.msg import Constraints
+from moveit_msgs.msg import CollisionObject
+from shape_msgs.msg import Mesh,MeshTriangle
 
+from ament_index_python.packages import get_package_share_directory
+bin_positions = [(x,y) 
+                 for x in [-1.9,-2.65]
+                 for y in [3.375,2.625,-3.375,-2.625]]
+bin_positions_dict = {f"bin{i+1}":bin_positions[i] for i in range(len(bin_positions))}
 
 class Error(Exception):
   def __init__(self, value: str):
@@ -123,6 +133,55 @@ def plan_and_execute(
 
     sleep(sleep_time)
 
+def makeMesh(name, pose, filename, logger) -> CollisionObject:
+    # mesh = trimesh.load(filename)
+    # mesh.vertices
+    # mesh.triangles  
+    with pyassimp.load(filename) as scene:
+        assert len(scene.meshes)
+        
+        mesh = Mesh()
+        for face in scene.meshes[0].faces:
+            triangle = MeshTriangle()
+            if hasattr(face, 'indices'):
+                if len(face.indices) == 3:
+                    triangle.vertex_indices = [face.indices[0],
+                                                face.indices[1],
+                                                face.indices[2]]
+            else:
+                if len(face) == 3:
+                    triangle.vertex_indices = [face[0],
+                                                face[1],
+                                                face[2]]
+            mesh.triangles.append(triangle)
+        for vertex in scene.meshes[0].vertices:
+            point = Point()
+            point.x = float(vertex[0])
+            point.y = float(vertex[1])
+            point.z = float(vertex[2])
+            mesh.vertices.append(point)
+        
+    o = CollisionObject()
+    o.header.frame_id = "world"
+    o.id = name
+    o.meshes.append(mesh)
+    o.mesh_poses.append(pose)
+    o.operation = o.ADD
+    return o
+
+def add_model_to_planning_scene(name : str,
+                                mesh_file : str,
+                                logger,
+                                planning_scene_monitor: PlanningSceneMonitor,
+                                model_pose : Pose
+                                ):
+    
+    package_share_directory = get_package_share_directory("moveit_py_testing")
+    model_path = package_share_directory + "/meshes/"+mesh_file
+    collision_object = makeMesh(name, model_pose,model_path, logger)
+    with planning_scene_monitor.read_write() as scene:
+        scene.apply_collision_object(collision_object)
+        scene.current_state.update()
 
 def main(args=None):
     rclpy.init(args=args)
@@ -200,6 +259,18 @@ def main(args=None):
     # logger.info("\n".join(str(robotStateToRobotStateMsg(robot_state)).split(",")))
     robot_model = robot.get_robot_model()
     planning_scene_monitor = robot.get_planning_scene_monitor()
+    for i in range(1,len(bin_positions)+1):
+        bin_pose = Pose()
+        bin_pose.position.x = float(bin_positions_dict[f"bin{i}"][0])
+        bin_pose.position.y = float(bin_positions_dict[f"bin{i}"][1])
+        bin_pose.position.z = 0.0
+        # quaternion
+        bin_pose.orientation.x= 0.0
+        bin_pose.orientation.y = 0.0
+        bin_pose.orientation.z = 0.0
+        bin_pose.orientation.w = 1.0
+        add_model_to_planning_scene(f"bin{i}","bin.stl",logger, planning_scene_monitor, bin_pose)
+
     with planning_scene_monitor.read_write() as scene:
 
         # instantiate a RobotState instance using the current robot model

@@ -101,27 +101,28 @@ def launch_setup(context, *args, **kwargs):
             parameters_dict
         ],
     )
-    # start_rviz = LaunchConfiguration("rviz")
+    start_rviz = LaunchConfiguration("rviz")
 
-    # rviz_config_file = PathJoinSubstitution(
-    #     [FindPackageShare("test_competitor"), "rviz", "test_competitor.rviz"]
-    # )
+    rviz_config_file = PathJoinSubstitution(
+        [FindPackageShare("test_competitor"), "rviz", "test_competitor.rviz"]
+    )
 
-    # rviz_node = Node(
-    #     package="rviz2",
-    #     executable="rviz2",
-    #     name="rviz2_moveit",
-    #     output="log",
-    #     arguments=["-d", rviz_config_file],
-    #     parameters=[
-    #         moveit_config.to_dict(),
-    #         {"use_sim_time": True},
-    #     ],
-    #     condition=IfCondition(start_rviz)
-    # )
+    rviz_node = Node(
+        package="rviz2",
+        executable="rviz2",
+        name="rviz2_moveit",
+        output="log",
+        arguments=["-d", rviz_config_file],
+        parameters=[
+            moveit_config.to_dict(),
+            {"use_sim_time": True},
+        ],
+        condition=IfCondition(start_rviz)
+    )
+
     nodes_to_start = [
         moveit_py_test,
-        # rviz_node
+        rviz_node
     ]
 
     return nodes_to_start
