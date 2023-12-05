@@ -1,26 +1,26 @@
 
-.. _TUTORIAL9:
+.. _TUTORIAL10:
 
 *******************************************
-Tutorial 9: Basic Interface With MoveIt_Py
+Tutorial 10: Completing A Kitting Order Using MoveIt_Py
 *******************************************
 
-.. admonition:: Tutorial 9
+.. admonition:: Tutorial 10
   :class: attention
-  :name: tutorial_9
+  :name: tutorial_10
 
-  - **Prerequisites:** :ref:`Introduction to Tutorials <TUTORIALS>` and :ref:`Tutorial 8 <TUTORIAL8>`
-  - **Source Code**: `https://github.com/jaybrecht/ariac_tutorials/tree/tutorial_9 <https://github.com/jaybrecht/ariac_tutorials/tree/tutorial_9>`_ 
+  - **Prerequisites:** :ref:`Introduction to Tutorials <TUTORIALS>` and :ref:`Tutorial 9 <TUTORIAL9>`
+  - **Source Code**: `https://github.com/jaybrecht/ariac_tutorials/tree/tutorial_10 <https://github.com/jaybrecht/ariac_tutorials/tree/tutorial_10>`_ 
   - **Switch Branch**:
 
     .. code-block:: bash
         
             cd ~/ariac_ws/src/ariac_tutorials
-            git switch tutorial_9
+            git switch tutorial_10
 
 
-The code used in this tutorial is provided as a reference for how to use moveit_py to command the robots.
-The main goal of this tutorial is to show how to use moveit_py to pick a part using the floor robot.
+The code used in this tutorial is provided as a reference for how to use moveit_py to command the robots to complete a kitting order.
+The main goal of this tutorial is to show how to use moveit_py to complete a kitting order.
 Competitors interested in using moveit_py to command robots are encouraged to use this code as a starting point.
 Competitors are encouraged to learn more about moveit_py by reading the `MoveIt_Py documentation <https://moveit.picknik.ai/main/doc/examples/motion_planning_python_api/motion_planning_python_api_tutorial.html>`_.
 
@@ -29,10 +29,10 @@ Competitors are encouraged to learn more about moveit_py by reading the `MoveIt_
 Package Structure
 =================
 
-Updates and additions that are specific to :tuto:`Tutorial 9`  are highlighted in the tree below.
+Updates and additions that are specific to :tuto:`Tutorial 10`  are highlighted in the tree below.
 
 .. code-block:: text
-    :emphasize-lines: 2, 5-7, 9, 12, 14, 24
+    :emphasize-lines: 2, 6, 9, 12, 14, 25
     :class: no-copybutton
     
     ariac_tutorials
@@ -40,10 +40,10 @@ Updates and additions that are specific to :tuto:`Tutorial 9`  are highlighted i
     ├── package.xml
     ├── config
     |   ├── collision_object_info.yaml
-    |   ├── tutorial9_config.yaml
+    |   ├── tutorial10_config.yaml
     │   └── sensors.yaml
     ├── launch
-    │   └── tutorial9.launch.py
+    │   └── tutorial10.launch.py
     ├── ariac_tutorials
     │   ├── __init__.py
     │   ├── utils.py
@@ -58,7 +58,8 @@ Updates and additions that are specific to :tuto:`Tutorial 9`  are highlighted i
         ├── tutorial_6.py
         ├── tutorial_7.py
         ├── tutorial_8.py
-        └── tutorial_9.py
+        ├── tutorial_9.py
+        └── tutorial_10.py
 
 Updated/Created Files
 =====================
@@ -70,8 +71,9 @@ Competition Interface
     :caption: :file:`competition_interface.py`
     :name: competitioninterface-tutorial10
     :linenos:
-    :emphasize-lines: 134-138, 215-245, 665-930
+    :emphasize-lines: 149-159, 271-345, 1080-1500
 
+    from argparse import _MutuallyExclusiveGroup
     from time import sleep
     from math import pi
     from copy import copy
@@ -86,15 +88,17 @@ Competition Interface
     from rclpy.node import Node
     from rclpy.qos import qos_profile_sensor_data
     from rclpy.parameter import Parameter
+    from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 
-    from geometry_msgs.msg import PoseStamped, Pose, Point
+    from geometry_msgs.msg import PoseStamped, Pose, Point, TransformStamped
     from shape_msgs.msg import Mesh, MeshTriangle
-    from moveit_msgs.msg import CollisionObject
+    from moveit_msgs.msg import CollisionObject, AttachedCollisionObject, PlanningScene
     from std_msgs.msg import Header
 
     from moveit.core.robot_trajectory import RobotTrajectory
     from moveit.core.robot_state import RobotState, robotStateToRobotStateMsg
-    from moveit_msgs.srv import GetCartesianPath, GetPositionFK
+    from moveit_msgs.srv import GetCartesianPath, GetPositionFK, ApplyPlanningScene, GetPlanningScene
+    from moveit.core.kinematic_constraints import construct_joint_constraint
 
     from ariac_msgs.msg import (
         CompetitionState as CompetitionStateMsg,
@@ -111,7 +115,9 @@ Competition Interface
 
     from ariac_msgs.srv import (
         MoveAGV,
-        VacuumGripperControl
+        VacuumGripperControl,
+        ChangeGripper,
+        SubmitOrder,
     )
 
     from std_srvs.srv import Trigger
@@ -129,6 +135,10 @@ Competition Interface
         AssemblyTask,
         KittingPart
     )
+
+    from tf2_ros.buffer import Buffer
+    from tf2_ros.transform_listener import TransformListener
+    from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
 
 
     class Error(Exception):
@@ -211,6 +221,18 @@ Competition Interface
                         PartMsg.SENSOR : 0.07}
         '''Dictionary for the heights of each part'''
 
+        _quad_offsets = {1 : (-0.08, 0.12),
+                        2 : (0.08, 0.12),
+                        3 : (-0.08, -0.12),
+                        4 : (0.08, -0.12)}
+
+        _rail_positions = {"agv1":-4.5,
+                        "agv2":-1.2,
+                        "agv3":1.2,
+                        "agv4":4.5,
+                        "left_bins":3,
+                        "right_bins":-3}
+
         def __init__(self):
             super().__init__('competition_interface')
 
@@ -221,6 +243,11 @@ Competition Interface
             )
 
             self.set_parameters([sim_time])
+            
+            # ROS2 callback groups
+            self.ariac_cb_group = MutuallyExclusiveCallbackGroup()
+            self.moveit_cb_group = MutuallyExclusiveCallbackGroup()
+            self.orders_cb_group = ReentrantCallbackGroup()
 
             # Service client for starting the competition
             self._start_competition_client = self.create_client(Trigger, '/ariac/start_competition')
@@ -230,17 +257,11 @@ Competition Interface
                 CompetitionStateMsg,
                 '/ariac/competition_state',
                 self._competition_state_cb,
-                10)
+                10,
+                callback_group=self.ariac_cb_group)
             
             # Store the state of the competition
             self._competition_state: CompetitionStateMsg = None
-
-            # Subscriber to the break beam status topic
-            self._break_beam0_sub = self.create_subscription(
-                BreakBeamStatusMsg,
-                '/ariac/sensors/breakbeam_0/status',
-                self._breakbeam0_cb,
-                qos_profile_sensor_data)
             
             # Store the number of parts that crossed the beam
             self._conveyor_part_count = 0
@@ -248,13 +269,6 @@ Competition Interface
             # Store whether the beam is broken
             self._object_detected = False
 
-            # Subscriber to the logical camera topic
-            self._advanced_camera0_sub = self.create_subscription(
-                AdvancedLogicalCameraImageMsg,
-                '/ariac/sensors/advanced_camera_0/image',
-                self._advanced_camera0_cb,
-                qos_profile_sensor_data)
-            
             # Store each camera image as an AdvancedLogicalCameraImage object
             self._camera_image: AdvancedLogicalCameraImage = None
 
@@ -263,10 +277,11 @@ Competition Interface
                 OrderMsg,
                 '/ariac/orders',
                 self._orders_cb,
-                10)
+                10,
+                callback_group=self.orders_cb_group)
             
             # Flag for parsing incoming orders
-            self._parse_incoming_order = False
+            self._parse_incoming_order = True
             
             # List of orders
             self._orders = []
@@ -276,7 +291,8 @@ Competition Interface
                 VacuumGripperState,
                 '/ariac/floor_robot_gripper_state',
                 self._floor_robot_gripper_state_cb,
-                qos_profile_sensor_data)
+                qos_profile_sensor_data,
+                callback_group=self.ariac_cb_group)
 
             # Service client for turning on/off the vacuum gripper on the floor robot
             self._floor_gripper_enable = self.create_client(
@@ -298,11 +314,19 @@ Competition Interface
 
             self._planning_scene_monitor = self._ariac_robots.get_planning_scene_monitor()
 
+            self._world_collision_objects = []
+
             # Parts found in the bins
             self._left_bins_parts = []
             self._right_bins_parts = []
             self._left_bins_camera_pose = Pose()
             self._right_bins_camera_pose = Pose()
+
+            # Tray information
+            self._kts1_trays = []
+            self._kts2_trays = []
+            self._kts1_camera_pose = Pose()
+            self._kts2_camera_pose = Pose()
 
             # service clients
             self.get_cartesian_path_client = self.create_client(GetCartesianPath, "compute_cartesian_path")
@@ -312,11 +336,89 @@ Competition Interface
             self.left_bins_camera_sub = self.create_subscription(AdvancedLogicalCameraImageMsg,
                                                                 "/ariac/sensors/left_bins_camera/image",
                                                                 self._left_bins_camera_cb,
-                                                                qos_profile_sensor_data)
+                                                                qos_profile_sensor_data,
+                                                                callback_group=self.moveit_cb_group)
             self.right_bins_camera_sub = self.create_subscription(AdvancedLogicalCameraImageMsg,
                                                                 "/ariac/sensors/right_bins_camera/image",
                                                                 self._right_bins_camera_cb,
-                                                                qos_profile_sensor_data)
+                                                                qos_profile_sensor_data,
+                                                                callback_group=self.moveit_cb_group)
+            self.kts1_camera_sub_ = self.create_subscription(AdvancedLogicalCameraImageMsg,
+                                                            "/ariac/sensors/kts1_camera/image",
+                                                            self._kts1_camera_cb,
+                                                            qos_profile_sensor_data,
+                                                                callback_group=self.moveit_cb_group)
+            self.kts2_camera_sub_ = self.create_subscription(AdvancedLogicalCameraImageMsg,
+                                                            "/ariac/sensors/kts2_camera/image",
+                                                            self._kts2_camera_cb,
+                                                            qos_profile_sensor_data,
+                                                            callback_group=self.moveit_cb_group)
+            
+            # AGV status subs
+            self._agv_locations = {1 : -1,
+                                2 : -1,
+                                3 : -1,
+                                4 : -1}
+            
+            self.agv1_status_sub = self.create_subscription(AGVStatusMsg,
+                                                            "/ariac/agv1_status",
+                                                            self._agv1_status_cb,
+                                                            10,
+                                                            callback_group=self.moveit_cb_group)
+            self.agv2_status_sub = self.create_subscription(AGVStatusMsg,
+                                                            "/ariac/agv2_status",
+                                                            self._agv2_status_cb,
+                                                            10,
+                                                            callback_group=self.moveit_cb_group)
+            self.agv3_status_sub = self.create_subscription(AGVStatusMsg,
+                                                            "/ariac/agv3_status",
+                                                            self._agv3_status_cb,
+                                                            10,
+                                                            callback_group=self.moveit_cb_group)
+            self.agv4_status_sub = self.create_subscription(AGVStatusMsg,
+                                                            "/ariac/agv4_status",
+                                                            self._agv4_status_cb,
+                                                            10,
+                                                            callback_group=self.moveit_cb_group)
+            
+            # TF
+            self.tf_buffer = Buffer()
+            self.tf_listener = TransformListener(self.tf_buffer, self)
+
+            self.tf_broadcaster = StaticTransformBroadcaster(self)
+            self.static_transforms = []
+
+            self.floor_robot_attached_part_ = PartMsg()
+
+            self._change_gripper_client = self.create_client(ChangeGripper, "/ariac/floor_robot_change_gripper")
+            
+            # Planning Scene Info
+            self.planning_scene_sub = self.create_subscription(PlanningScene,
+                                                            "/planning_scene",
+                                                                self.get_planning_scene_msg,
+                                                                10,
+                                                                callback_group=self.moveit_cb_group)
+            self.planning_scene_msg = PlanningScene()
+
+            # Meshes file path
+            self.mesh_file_path = get_package_share_directory("test_competitor") + "/meshes/"
+
+            self.ceiling_joint_positions_arrs = {
+                "ceiling_as1_js_":[1,-3,1.571,0,-2.37,2.37,3.14,-1.57,0],
+                "ceiling_as2_js_":[-4,-3,1.571,0,-2.37,2.37,3.14,-1.57,0],
+                "ceiling_as3_js_":[1,3,1.571,0,-2.37,2.37,3.14,-1.57,0],
+                "ceiling_as4_js_":[-4,3,1.571,0,-2.37,2.37,3.14,-1.57,0],
+            }
+            self.ceiling_position_dict = {key:self._create_ceiling_joint_position_state(self.ceiling_joint_positions_arrs[key])
+                                        for key in self.ceiling_joint_positions_arrs.keys()}
+            
+            self.floor_joint_positions_arrs = {
+                "floor_kts1_js_":[4.0,1.57,-1.57,1.57,-1.57,-1.57,0.0],
+                "floor_kts2_js_":[-4.0,-1.57,-1.57,1.57,-1.57,-1.57,0.0]
+            }
+            self.floor_position_dict = {key:self._create_floor_joint_position_state(self.floor_joint_positions_arrs[key])
+                                        for key in self.floor_joint_positions_arrs.keys()}
+            
 
 
         @property
@@ -339,7 +441,7 @@ Competition Interface
         def parse_incoming_order(self, value):
             self._parse_incoming_order = value
 
-        def _orders_cb(self, msg: Order):
+        def _orders_cb(self, msg: OrderMsg):
             '''Callback for the topic /ariac/orders
             Arguments:
                 msg -- Order message
@@ -399,10 +501,11 @@ Competition Interface
                 return
             # Wait for competition to be ready
             while self._competition_state != CompetitionStateMsg.READY:
-                try:
-                    rclpy.spin_once(self)
-                except KeyboardInterrupt:
-                    return
+                # try:
+                #     rclpy.spin_once(self)
+                # except KeyboardInterrupt:
+                #     return
+                pass
 
             self.get_logger().info('Competition is ready. Starting...')
 
@@ -415,8 +518,10 @@ Competition Interface
             request = Trigger.Request()
             future = self._start_competition_client.call_async(request)
 
+            while not future.done():
+                pass
             # Wait until the service call is completed
-            rclpy.spin_until_future_complete(self, future)
+            # rclpy.spin_until_future_complete(self, future)
 
             if future.result().success:
                 self.get_logger().info('Started competition.')
@@ -736,12 +841,12 @@ Competition Interface
                 except KeyboardInterrupt as kb_error:
                     raise KeyboardInterrupt from kb_error
         
-        def _call_get_cartesian_path (self, 
-                                    waypoints : list,
-                                    max_step : float):
+        def _call_get_cartesian_path (self, waypoints : list, 
+                                    max_velocity_scaling_factor : float, 
+                                    max_acceleration_scaling_factor : float,
+                                    avoid_collision : bool):
 
             self.get_logger().info("Getting cartesian path")
-            
             self._ariac_robots_state.update()
 
             request = GetCartesianPath.Request()
@@ -755,12 +860,16 @@ Competition Interface
             request.group_name = "floor_robot"
             request.link_name = "floor_gripper"
             request.waypoints = waypoints
-            request.max_step = max_step
+            request.max_step = 0.1
+            request.avoid_collisions = avoid_collision
+            request.max_velocity_scaling_factor = max_velocity_scaling_factor
+            request.max_acceleration_scaling_factor = max_acceleration_scaling_factor
 
+            
             future = self.get_cartesian_path_client.call_async(request)
 
-
             rclpy.spin_until_future_complete(self, future, timeout_sec=10)
+
 
             if not future.done():
                 raise Error("Timeout reached when calling move_cartesian service")
@@ -772,17 +881,16 @@ Competition Interface
 
         def _call_get_position_fk (self):
 
-            self.get_logger().info("Getting cartesian path")
-
             request = GetPositionFK.Request()
+
 
             header = Header()
             header.frame_id = "world"
             header.stamp = self.get_clock().now().to_msg()
             request.header = header
 
+
             request.fk_link_names = ["floor_gripper"]
-            self._ariac_robots_state.update()
             request.robot_state = robotStateToRobotStateMsg(self._ariac_robots_state)
 
             future = self.get_position_fk_client.call_async(request)
@@ -791,12 +899,12 @@ Competition Interface
             rclpy.spin_until_future_complete(self, future, timeout_sec=10)
 
             if not future.done():
-                raise Error("Timeout reached when calling move_cartesian service")
+                raise Error("Timeout reached when calling get_position_fk service")
 
             result: GetPositionFK.Response
             result = future.result()
 
-            return result.pose_stamped
+            return result.pose_stamped[0].pose
         
         def _plan_and_execute(
             self,
@@ -828,8 +936,10 @@ Competition Interface
                 robot.execute(robot_trajectory, controllers=[])
             else:
                 logger.error("Planning failed")
+                return False
 
             sleep(sleep_time)
+            return True
 
         def move_floor_robot_home(self):
             self._floor_robot.set_start_state_to_current_state()
@@ -837,21 +947,21 @@ Competition Interface
             self._plan_and_execute(self._ariac_robots,self._floor_robot, self.get_logger(), sleep_time=0.0)
             self._ariac_robots_state.update()
             self._floor_robot_home_quaternion = self._ariac_robots_state.get_pose("floor_gripper").orientation
+        
+        def move_ceiling_robot_home(self):
+            self._ceiling_robot.set_start_state_to_current_state()
+            self._ceiling_robot.set_goal_state(configuration_name="home")
+            self._plan_and_execute(self._ariac_robots,self._ceiling_robot, self.get_logger(), sleep_time=0.0)
+            self._ariac_robots_state.update()
+            self._ceiling_robot_home_quaternion = self._ariac_robots_state.get_pose("ceiling_gripper").orientation
 
-        def _move_floor_robot_cartesian(self, waypoints):
+        def _move_floor_robot_cartesian(self, waypoints, velocity, acceleration, avoid_collision = True):
             with self._planning_scene_monitor.read_write() as scene:
                 # instantiate a RobotState instance using the current robot model
                 self._ariac_robots_state = scene.current_state
-                self._ariac_robots_state.update()
-
-                fk_posestamped = self._call_get_position_fk()
-
                 # Max step
-                max_step = 0.1
                 self._ariac_robots_state.update()
-                trajectory_msg = self._call_get_cartesian_path(
-                                            waypoints,
-                                            max_step)
+                trajectory_msg = self._call_get_cartesian_path(waypoints, velocity, acceleration, avoid_collision)
                 self._ariac_robots_state.update()
                 trajectory = RobotTrajectory(self._ariac_robots.get_robot_model())
                 trajectory.set_robot_trajectory_msg(self._ariac_robots_state, trajectory_msg)
@@ -870,9 +980,10 @@ Competition Interface
                 self.get_logger().info(str(pose_goal.pose))
                 self._floor_robot.set_goal_state(pose_stamped_msg=pose_goal, pose_link="floor_gripper")
             
-            self._plan_and_execute(self._ariac_robots, self._floor_robot, self.get_logger())
+            while not self._plan_and_execute(self._ariac_robots, self._floor_robot, self.get_logger()):
+                pass
 
-        def _makeMesh(self, name, pose, filename) -> CollisionObject:
+        def _makeMesh(self, name, pose, filename, frame_id) -> CollisionObject:
             with pyassimp.load(filename) as scene:
                 assert len(scene.meshes)
                 
@@ -898,7 +1009,7 @@ Competition Interface
                     mesh.vertices.append(point)
                 
             o = CollisionObject()
-            o.header.frame_id = "world"
+            o.header.frame_id = frame_id
             o.id = name
             o.meshes.append(mesh)
             o.mesh_poses.append(pose)
@@ -908,14 +1019,14 @@ Competition Interface
         def _add_model_to_planning_scene(self,
                                         name : str,
                                         mesh_file : str,
-                                        model_pose : Pose
-                                        ):
+                                        model_pose : Pose,
+                                        frame_id = "world"):
             self.get_logger().info(f"Adding {name} to planning scene")
-            package_share_directory = get_package_share_directory("test_competitor")
-            model_path = package_share_directory + "/meshes/"+mesh_file
-            collision_object = self._makeMesh(name, model_pose,model_path)
+            model_path = self.mesh_file_path+mesh_file
+            collision_object = self._makeMesh(name, model_pose,model_path, frame_id = frame_id)
             with self._planning_scene_monitor.read_write() as scene:
                 scene.apply_collision_object(collision_object)
+                self._world_collision_objects.append(collision_object)
                 scene.current_state.update()
         
         def add_objects_to_planning_scene(self):
@@ -946,22 +1057,47 @@ Competition Interface
         def _right_bins_camera_cb(self,msg : AdvancedLogicalCameraImageMsg):
             self._right_bins_parts = msg.part_poses
             self._right_bins_camera_pose = msg.sensor_pose
+        
+        def _kts1_camera_cb(self, msg: AdvancedLogicalCameraImageMsg):
+            self._kts1_trays = msg.tray_poses
+            self._kts1_camera_pose = msg.sensor_pose
 
-        def _floor_robot_wait_for_attach(self,timeout : float):
+        def _kts2_camera_cb(self, msg: AdvancedLogicalCameraImageMsg):
+            self._kts2_trays = msg.tray_poses
+            self._kts2_camera_pose = msg.sensor_pose
+        
+        def _agv1_status_cb(self, msg : AGVStatusMsg):
+            self._agv_locations[1] = msg.location
+        
+        def _agv2_status_cb(self, msg : AGVStatusMsg):
+            self._agv_locations[2] = msg.location
+        
+        def _agv3_status_cb(self, msg : AGVStatusMsg):
+            self._agv_locations[3] = msg.location
+        
+        def _agv4_status_cb(self, msg : AGVStatusMsg):
+            self._agv_locations[4] = msg.location
+
+        def _floor_robot_wait_for_attach(self,timeout : float, orientation : Quaternion):
+            with self._planning_scene_monitor.read_write() as scene:
+                current_pose = scene.current_state.get_pose("floor_gripper")
+            self.get_logger().info("Got current pose")
             start_time = time.time()
             while not self._floor_robot_gripper_state.attached:
-                self._move_floor_robot_cartesian(0.0, 0.0, -0.001)
+                current_pose=build_pose(current_pose.position.x, current_pose.position.y,
+                                        current_pose.position.z-0.001,
+                                        orientation)
+                waypoints = [current_pose]
+                self._move_floor_robot_cartesian(waypoints, 0.3, 0.3, False)
                 sleep(0.2)
                 if time.time()-start_time>=timeout:
                     self.get_logger().error("Unable to pick up part")
 
-        def  floor_robot_pick_bin_part(self,part_to_pick : PartMsg):
+        def floor_robot_pick_bin_part(self,part_to_pick : PartMsg):
             part_pose = Pose()
             found_part = False
             bin_side = ""
             
-            print("HOLD")
-
             for part in self._left_bins_parts:
                 part : PartPoseMsg
                 if (part.part.type == part_to_pick.type and part.part.color == part_to_pick.color):
@@ -984,24 +1120,459 @@ Competition Interface
             else:
                 self.get_logger().info(f"Part found in {bin_side}")
 
+            if self._floor_robot_gripper_state.type != "part_gripper":
+                if part_pose.position.y<0:
+                    station = "kts1"
+                else: 
+                    station = "kts2"
+                self.floor_robot_move_to_joint_position(f"floor_{station}_js_")
+                self._floor_robot_change_gripper(station, "parts")
+            self.floor_robot_move_joints_dict({"linear_actuator_joint":self._rail_positions[bin_side],
+                                        "floor_shoulder_pan_joint":0})
             part_rotation = rpy_from_quaternion(part_pose.orientation)[2]
+            
             gripper_orientation = quaternion_from_euler(0.0,pi,part_rotation)
             self._move_floor_robot_to_pose(build_pose(part_pose.position.x, part_pose.position.y,
                                                     part_pose.position.z+0.5, gripper_orientation))
 
-            waypoints = []
-            waypoints.append(build_pose(part_pose.position.x, part_pose.position.y,
-                                        part_pose.position.z+CompetitionInterface._part_heights[part_to_pick.type]+0.005,
-                                        gripper_orientation))
-            self._move_floor_robot_cartesian(waypoints)
+            waypoints = [build_pose(part_pose.position.x, part_pose.position.y,
+                                    part_pose.position.z+CompetitionInterface._part_heights[part_to_pick.type]+0.008,
+                                    gripper_orientation)]
+            self._move_floor_robot_cartesian(waypoints, 0.3, 0.3, False)
             self.set_floor_robot_gripper_state(True)
-            self._floor_robot_wait_for_attach(5.0)
+            self._floor_robot_wait_for_attach(30.0, gripper_orientation)
 
-            waypoints = []
-            waypoints.append(build_pose(part_pose.position.x, part_pose.position.y,
-                                        part_pose.position.z+0.5,
-                                        gripper_orientation))
-            self._move_floor_robot_cartesian(waypoints)
+            self._attach_model_to_floor_gripper(part_to_pick, part_pose)
+
+            self.floor_robot_attached_part_ = part_to_pick
+            self.get_logger().info("Part attached. Attempting to move up")
+            waypoints = [build_pose(part_pose.position.x, part_pose.position.y,
+                                    part_pose.position.z+0.5,
+                                    gripper_orientation)]
+            self._move_floor_robot_cartesian(waypoints, 0.3, 0.3, False)
+            self.get_logger().info("After move up")
+        
+        def complete_orders(self):
+            while len(self._orders) == 0:
+                self.get_logger().info("No orders have been recieved yet", throttle_duration_sec=5.0)
+
+            self.add_objects_to_planning_scene()
+
+            success = True
+            while True:
+                if (self._competition_state == CompetitionStateMsg.ENDED):
+                    success = False
+                    break
+
+                if len(self._orders) == 0:
+                    if (self._competition_state == CompetitionStateMsg.ORDER_ANNOUNCEMENTS_DONE):
+                        self.get_logger().info("Waiting for orders...")
+                        while len(self._orders) == 0:
+                            sleep(1)
+                    else:
+                        self.get_logger().info("Completed all orders")
+                        success = True
+                        break
+
+                current_order = copy(self._orders[0])
+                current_order : Order
+                del self._orders[0]
+                kitting_agv_num = -1
+
+                if current_order.order_type== OrderMsg.KITTING:
+                    self.complete_kitting_order(current_order.order_task)
+                    kitting_agv_num = current_order.order_task.agv_number
+                else:
+                    self.get_logger().info(f"Unable to complete {'assembly' if current_order.order_type == OrderMsg.ASSEMBLY else 'combined'} order")
+                    return False
+                agv_location = -1 
+                
+                while agv_location !=AGVStatusMsg.WAREHOUSE:
+                    agv_location = self._agv_locations[kitting_agv_num]
+                
+                self.submit_order(current_order.order_id)
+            return success
+
+        def complete_kitting_order(self, kitting_task:KittingTask):
+            self.move_floor_robot_home()
+
+            self._floor_robot_pick_and_place_tray(kitting_task._tray_id, kitting_task._agv_number)
+
+            for kitting_part in kitting_task._parts:
+                self.floor_robot_pick_bin_part(kitting_part._part)
+                self._floor_robot_place_part_on_kit_tray(kitting_task._agv_number, kitting_part.quadrant)
+            
+            self.move_agv(kitting_task._agv_number, kitting_task._destination)
+
+        def _floor_robot_pick_and_place_tray(self, tray_id, agv_number):
+            tray_pose = Pose
+            station = ""
+            found_tray = False
+
+            for tray in self._kts1_trays:
+                if tray.id == tray_id:
+                    station = "kts1"
+                    tray_pose = multiply_pose(self._kts1_camera_pose, tray.pose)
+                    found_tray = True
+                    break
+            
+            if not found_tray:
+                for tray in self._kts2_trays:
+                    if tray.id == tray_id:
+                        station = "kts2"
+                        tray_pose = multiply_pose(self._kts2_camera_pose, tray.pose)
+                        found_tray = True
+                        break
+            
+            if not found_tray:
+                return False
+            
+            tray_rotation = rpy_from_quaternion(tray_pose.orientation)[2]
+
+            self.floor_robot_move_to_joint_position(f"floor_{station}_js_")
+
+            if self._floor_robot_gripper_state.type != "tray_gripper":
+                self._floor_robot_change_gripper(station, "trays")
+            
+            gripper_orientation = quaternion_from_euler(0.0,pi,tray_rotation)
+            self._move_floor_robot_to_pose(build_pose(tray_pose.position.x, tray_pose.position.y,
+                                                    tray_pose.position.z+0.5, gripper_orientation))
+            
+            waypoints = [build_pose(tray_pose.position.x, tray_pose.position.y,
+                                    tray_pose.position.z+0.003,
+                                    gripper_orientation)]
+            self._move_floor_robot_cartesian(waypoints, 0.3, 0.3, False)
+            self.set_floor_robot_gripper_state(True)
+            self._floor_robot_wait_for_attach(30.0, gripper_orientation)
+            waypoints = [build_pose(tray_pose.position.x, tray_pose.position.y,
+                                    tray_pose.position.z+0.5,
+                                    gripper_orientation)]
+            self._move_floor_robot_cartesian(waypoints, 0.3, 0.3)
+
+            self.floor_robot_move_joints_dict({"linear_actuator_joint":self._rail_positions[f"agv{agv_number}"],
+                                        "floor_shoulder_pan_joint":0})
+
+            agv_tray_pose = self._frame_world_pose(f"agv{agv_number}_tray")
+            agv_rotation = rpy_from_quaternion(agv_tray_pose.orientation)[2]
+
+            agv_quaternion = quaternion_from_euler(0.0,pi,agv_rotation)
+
+            self._move_floor_robot_to_pose(build_pose(agv_tray_pose.position.x, agv_tray_pose.position.y,
+                                                    agv_tray_pose.position.z+0.5,agv_quaternion))
+            
+            waypoints = [build_pose(agv_tray_pose.position.x, agv_tray_pose.position.y,
+                                    agv_tray_pose.position.z+0.01,agv_quaternion)]
+            
+            self._move_floor_robot_cartesian(waypoints, 0.3, 0.3)
+            self.set_floor_robot_gripper_state(False)
+            self.lock_agv_tray(agv_number)
+
+            waypoints = [build_pose(agv_tray_pose.position.x, agv_tray_pose.position.y,
+                                    agv_tray_pose.position.z+0.3,quaternion_from_euler(0.0,pi,0.0))]
+            self._move_floor_robot_cartesian(waypoints,0.3,0.3)
+
+        
+        def _frame_world_pose(self,frame_id : str):
+            self.get_logger().info(f"Getting transform for frame: {frame_id}")
+            # try:
+            t = self.tf_buffer.lookup_transform("world",frame_id,rclpy.time.Time())
+            # except:
+            #     self.get_logger().error("Could not get transform")
+            #     quit()
+            
+            pose = Pose()
+            pose.position.x = t.transform.translation.x
+            pose.position.y = t.transform.translation.y
+            pose.position.z = t.transform.translation.z
+            pose.orientation = t.transform.rotation
+
+            return pose
+            
+        def _floor_robot_place_part_on_kit_tray(self, agv_num : int, quadrant : int):
+            
+            if not self._floor_robot_gripper_state.attached:
+                self.get_logger().error("No part attached")
+                return False
+
+            self.floor_robot_move_joints_dict({"linear_actuator_joint":self._rail_positions[f"agv{agv_num}"],
+                                        "floor_shoulder_pan_joint":0})
+            
+            agv_tray_pose = self._frame_world_pose(f"agv{agv_num}_tray")
+
+            part_drop_offset = build_pose(CompetitionInterface._quad_offsets[quadrant][0],
+                                        CompetitionInterface._quad_offsets[quadrant][1],
+                                        0.0, quaternion_from_euler(0.0,pi,0.0))
+            
+            part_drop_pose = multiply_pose(agv_tray_pose, part_drop_offset)
+
+            self._move_floor_robot_to_pose(build_pose(part_drop_pose.position.x, part_drop_pose.position.y,
+                                                    part_drop_pose.position.z+0.3, quaternion_from_euler(0.0, pi, 0.0)))
+            
+            waypoints = [build_pose(part_drop_pose.position.x, part_drop_pose.position.y,
+                                    part_drop_pose.position.z+CompetitionInterface._part_heights[self.floor_robot_attached_part_.type]+0.004, 
+                                    quaternion_from_euler(0.0, pi, 0.0))]
+            
+            self._move_floor_robot_cartesian(waypoints, 0.3, 0.3)
+
+            self.set_floor_robot_gripper_state(False)
+
+            self._remove_model_from_floor_gripper()
+
+            waypoints = [build_pose(part_drop_pose.position.x, part_drop_pose.position.y,
+                                    part_drop_pose.position.z+0.3, 
+                                    quaternion_from_euler(0.0, pi, 0.0))]
+            
+            self._move_floor_robot_cartesian(waypoints, 0.3, 0.3)
+
+            return True
+
+        def _floor_robot_change_gripper(self,station : str, gripper_type : str):
+            self.get_logger().info(f"Changing gripper to type: {gripper_type}")
+
+            tc_pose = self._frame_world_pose(f"{station}_tool_changer_{gripper_type}_frame")
+
+            self._move_floor_robot_to_pose(build_pose(tc_pose.position.x, tc_pose.position.y,
+                                                    tc_pose.position.z+0.4,
+                                                    quaternion_from_euler(0.0, pi, 0.0)))
+            
+            waypoints = [build_pose(tc_pose.position.x, tc_pose.position.y,tc_pose.position.z,
+                                    quaternion_from_euler(0.0,pi,0.0))]
+            
+            self._move_floor_robot_cartesian(waypoints, 0.3, 0.3)
+
+            request = ChangeGripper.Request()
+
+            if gripper_type == "trays":
+                request.gripper_type = ChangeGripper.Request.TRAY_GRIPPER
+            elif gripper_type == "parts":
+                request.gripper_type = ChangeGripper.Request.PART_GRIPPER
+            
+            future = self._change_gripper_client.call_async(request)
+
+
+            rclpy.spin_until_future_complete(self, future, timeout_sec=10)
+
+            if not future.done():
+                raise Error("Timeout reached when calling change_gripper service")
+
+            result: ChangeGripper.Response
+            result = future.result()
+
+            if not result.success:
+                self.get_logger().error("Error calling change gripper service")
+            
+            waypoints = [build_pose(tc_pose.position.x, tc_pose.position.y,tc_pose.position.z + 0.4,
+                                    quaternion_from_euler(0.0,pi,0.0))]
+            
+            self._move_floor_robot_cartesian(waypoints, 0.3, 0.3)
+        
+        def submit_order(self, order_id):
+            submit_order_client = self.create_client(
+                SubmitOrder,
+                '/ariac/submit_order'
+            )
+            request = SubmitOrder.Request()
+            request.order_id = order_id
+
+            # Send the request
+            future = submit_order_client.call_async(request)
+
+            # Wait for the response
+            try:
+                rclpy.spin_until_future_complete(self, future)
+            except KeyboardInterrupt as kb_error:
+                raise KeyboardInterrupt from kb_error
+
+            # Check the response
+            if future.result().success:
+                self.get_logger().info(f'Submitted order')
+            else:
+                self.get_logger().warn('Unable to submit order')
+        
+        def move_agv(self, num, destination):
+            '''
+            Move an AGV to an assembly station.
+            Args:
+                num (int): AGV number
+                destination(int): Destination
+            Raises:
+                KeyboardInterrupt: Exception raised when the user presses Ctrl+C
+            '''
+
+            # Create a client to send a request to the `/ariac/move_agv` service.
+            mover = self.create_client(
+                MoveAGV,
+                f'/ariac/move_agv{num}')
+
+            # Create a request object.
+            request = MoveAGV.Request()
+
+            # Set the request location.
+            request.location = destination
+
+            # Send the request.
+            future = mover.call_async(request)
+
+            # Wait for the server to respond.
+            try:
+                rclpy.spin_until_future_complete(self, future)
+            except KeyboardInterrupt as kb_error:
+                raise KeyboardInterrupt from kb_error
+
+            # Check the result of the service call.
+            if future.result().success:
+                self.get_logger().info(f'Moved AGV{num} to {self._destinations[destination]}')
+            else:
+                self.get_logger().warn(future.result().message)  
+                        
+        def _makeAttachedMesh(self, name, pose, filename) -> AttachedCollisionObject:
+            with pyassimp.load(filename) as scene:
+                assert len(scene.meshes)
+                
+                mesh = Mesh()
+                for face in scene.meshes[0].faces:
+                    triangle = MeshTriangle()
+                    if hasattr(face, 'indices'):
+                        if len(face.indices) == 3:
+                            triangle.vertex_indices = [face.indices[0],
+                                                        face.indices[1],
+                                                        face.indices[2]]
+                    else:
+                        if len(face) == 3:
+                            triangle.vertex_indices = [face[0],
+                                                        face[1],
+                                                        face[2]]
+                    mesh.triangles.append(triangle)
+                for vertex in scene.meshes[0].vertices:
+                    point = Point()
+                    point.x = float(vertex[0])
+                    point.y = float(vertex[1])
+                    point.z = float(vertex[2])
+                    mesh.vertices.append(point)
+                
+            o = AttachedCollisionObject()
+            o.link_name = "floor_gripper"
+            o.object.header.frame_id = "world"
+            o.object.id = name
+            o.object.meshes.append(mesh)
+            o.object.mesh_poses.append(pose)
+            return o
+        
+        def apply_planning_scene(self, scene):
+            apply_planning_scene_client = self.create_client(ApplyPlanningScene, "/apply_planning_scene")
+
+            # Create a request object.
+            request = ApplyPlanningScene.Request()
+
+            # Set the request location.
+            request.scene = scene
+
+            # Send the request.
+            future = apply_planning_scene_client.call_async(request)
+
+            # Wait for the server to respond.
+            try:
+                rclpy.spin_until_future_complete(self, future)
+            except KeyboardInterrupt as kb_error:
+                raise KeyboardInterrupt from kb_error
+
+            # Check the result of the service call.
+            if future.result().success:
+                self.get_logger().info(f'Succssefully applied new planning scene')
+            else:
+                self.get_logger().warn(future.result().message)
+        
+        def get_planning_scene_msg(self, msg:PlanningScene) -> PlanningScene:
+            self.planning_scene_msg = msg
+        
+        def _attach_model_to_floor_gripper(self, part_to_pick : PartMsg, part_pose : Pose):
+            part_name = self._part_colors[part_to_pick.color]+"_"+self._part_types[part_to_pick.type]
+
+            self.get_logger().info(f"Attaching {part_name} to floor gripper")
+            model_path = self.mesh_file_path + self._part_types[part_to_pick.type]+".stl"
+            attached_collision_object = self._makeAttachedMesh(part_name, part_pose,model_path)
+            temp_scene = copy(self.planning_scene_msg)
+            with self._planning_scene_monitor.read_write() as scene:
+                temp_scene.world.collision_objects = self._world_collision_objects
+                temp_scene.robot_state = robotStateToRobotStateMsg(scene.current_state)
+                temp_scene.robot_state.attached_collision_objects.append(attached_collision_object)
+                self.apply_planning_scene(temp_scene)
+                scene.current_state.update()
+                self._ariac_robots_state = scene.current_state
+                
+        
+        def _remove_model_from_floor_gripper(self):
+            self.get_logger().info("Removing attached part from floor gripper")
+            temp_scene = copy(self.planning_scene_msg)
+            with self._planning_scene_monitor.read_write() as scene:
+                temp_scene.world.collision_objects = self._world_collision_objects
+                temp_scene.robot_state = robotStateToRobotStateMsg(scene.current_state)
+                temp_scene.robot_state.attached_collision_objects.clear()
+                self.apply_planning_scene(temp_scene)
+                scene.current_state.update()
+                self._ariac_robots_state = scene.current_state
+        
+        def ceiling_robot_move_to_joint_position(self, position_name : str):
+            with self._planning_scene_monitor.read_write() as scene:
+                self._ceiling_robot.set_start_state_to_current_state()
+                scene.current_state.joint_positions = self.ceiling_position_dict[position_name]
+                joint_constraint = construct_joint_constraint(
+                        robot_state=scene.current_state,
+                        joint_model_group=self._ariac_robots.get_robot_model().get_joint_model_group("ceiling_robot"),
+                )
+                self._ceiling_robot.set_goal_state(motion_plan_constraints=[joint_constraint])
+            self._plan_and_execute(self._ariac_robots,self._ceiling_robot, self.get_logger())
+        
+        def _create_ceiling_joint_position_state(self, joint_positions : list)-> dict:
+            return {"gantry_x_axis_joint":joint_positions[0],
+                    "gantry_y_axis_joint":joint_positions[1],
+                    "gantry_rotation_joint":joint_positions[2],
+                    "ceiling_shoulder_pan_joint":joint_positions[3],
+                    "ceiling_shoulder_lift_joint":joint_positions[4],
+                    "ceiling_elbow_joint":joint_positions[5],
+                    "ceiling_wrist_1_joint":joint_positions[6],
+                    "ceiling_wrist_2_joint":joint_positions[7],
+                    "ceiling_wrist_3_joint":joint_positions[8]}
+        
+        def floor_robot_move_to_joint_position(self, position_name : str):
+            with self._planning_scene_monitor.read_write() as scene:
+                self._floor_robot.set_start_state_to_current_state()
+                scene.current_state.joint_positions = self.floor_position_dict[position_name]
+                joint_constraint = construct_joint_constraint(
+                        robot_state=scene.current_state,
+                        joint_model_group=self._ariac_robots.get_robot_model().get_joint_model_group("floor_robot"),
+                )
+                self._floor_robot.set_goal_state(motion_plan_constraints=[joint_constraint])
+            self._plan_and_execute(self._ariac_robots,self._floor_robot, self.get_logger())
+        
+        def _create_floor_joint_position_state(self, joint_positions : list)-> dict:
+            return {"linear_actuator_joint":joint_positions[0],
+                    "floor_shoulder_pan_joint":joint_positions[1],
+                    "floor_shoulder_lift_joint":joint_positions[2],
+                    "floor_elbow_joint":joint_positions[3],
+                    "floor_wrist_1_joint":joint_positions[4],
+                    "floor_wrist_2_joint":joint_positions[5],
+                    "floor_wrist_3_joint":joint_positions[6]}
+
+        def _create_floor_joint_position_dict(self, dict_positions = {}):
+            with self._planning_scene_monitor.read_write() as scene:
+                current_positions = scene.current_state.get_joint_group_positions("floor_robot")
+                current_position_dict = self._create_floor_joint_position_state(current_positions)
+                for key in dict_positions.keys():
+                    current_position_dict[key] = dict_positions[key]
+            return current_position_dict
+
+        def floor_robot_move_joints_dict(self, dict_positions : dict):
+            new_joint_position = self._create_floor_joint_position_dict(dict_positions)
+            with self._planning_scene_monitor.read_write() as scene:
+                self._floor_robot.set_start_state_to_current_state()
+                scene.current_state.joint_positions = new_joint_position
+                joint_constraint = construct_joint_constraint(
+                        robot_state=scene.current_state,
+                        joint_model_group=self._ariac_robots.get_robot_model().get_joint_model_group("floor_robot"),
+                )
+                self._floor_robot.set_goal_state(motion_plan_constraints=[joint_constraint])
+            self._plan_and_execute(self._ariac_robots,self._floor_robot, self.get_logger())
 
 
 Code Explanation
@@ -1010,28 +1581,28 @@ The competition interface from :ref:`Tutorial 8 <TUTORIAL8>` was augmented with 
 
 - Instance Variables
 
-    - :python:`_ariac_robots`: Instance of the MoveItPy class which enables the competition interface to interact with the robots using moveit_py.
-    - :python:`_ariac_robots_state`: Holds the state of the robots to get the current pose and other information.
-    - :python:`_floor_robot`: Moveit_py planning component fo the floor robot.
-    - :python:`_ceiling_robot`: Moveit_py planning component fo the ceiling.
-    - :python:`_floor_robot_home_quaternion`: Holds the orientation quaternion of the floor robot in the home position.
-    - :python:`_ceiling_robot_home_quaternion`: Holds the orientation quaternion of the ceiling robot in the home position.
-    - :python:`_planning_scene_monitor`: Planning scene monitor for the robots.
-    - :python:`_left_bins_parts`: Holds information about the parts found in the left bins.
-    - :python:`_right_bins_parts`: Holds information about the parts found in the right bins.
-    - :python:`_left_bins_camera_pose`: Holds the pose of the camera above the left bins.
-    - :python:`_right_bins_camera_pose`: Holds information about the parts found in the left bins.
-    - :python:`get_cartesian_path_client`: Service client for creating a cartesian path through a set of waypoints.
-    - :python:`get_position_fk_client`: Service client for getting the current pose.
-    - :python:`left_bins_camera_sub`: Subscriber to the advanced logical camera image above the left bins.
-    - :python:`right_bins_camera_sub`: Subscriber to the advanced logical camera image above the right bins.
+    - :python:`_agv_locations`: Holds the location ids for the agvs stays at -1 until it is at a named location.
+    - :python:`agv1_status_sub`: Subscribes to the agv1_status message to get the location live.
+    - :python:`agv2_status_sub`: Subscribes to the agv2_status message to get the location live.
+    - :python:`agv3_status_sub`: Subscribes to the agv3_status message to get the location live.
+    - :python:`agv4_status_sub`: Subscribes to the agv4_status message to get the location live.
+    - :python:`tf_buffer`: Used to get the transforms.
+    - :python:`floor_robot_attached_part_`: Holds the information about a part attached to the floor gripper.
+    - :python:`_change_gripper_client`: Client for calling the floor_robot_change_gripper service.
+    - :python:`planning_scene_sub`: Subscribes to the planning scene topic.
+    - :python:`planning_scene_msg`: Holds the current planning scene.
+    - :python:`mesh_file_path `: Holds the file path for the meshes from test_competitor.
+    - :python:`ceiling_joint_positions_arrs`: Used to make `ceiling_position_dict`.
+    - :python:`ceiling_position_dict`: Holds the ceiling joint positions in the correct format for named ceiling robot joint positions.
+    - :python:`floor_joint_positions_arrs `: Used to make `floor_position_dict`.
+    - :python:`floor_position_dict`: Holds the floor joint positions in the correct format for named floor robot joint positions.
 
 - Instance Methods
 
-    - :python:`_call_get_cartesian_path(self, waypoints)`: Private method used to get the cartesian calculate a trajectory with given waypoints.
-    - :python:`_call_get_position_fk(self)`: Private method that returns the current pose of the floor gripper as a pose_stamped_msg.
-    - :python:`_plan_and_execute(self, robot, planning_component, logger, single_plan_parameters, multi_plan_parameters, sleep_time)`: Private method that plans and executes a movement. This function is from the moveit_py documenation.
-    - :python:`move_floor_robot_home(self)`: Public method that moves the floor robot to the home position.
+    - :python:`complete_orders(self)`: Public method used to loop through orders in the competition and complete them.
+    - :python:`complete_kitting_order(self, kitting_task)`: Private method used to complete a kitting order using the other methods in the class.
+    - :python:`_floor_robot_pick_and_place_tray(self, tray_id, agv_number)`: Private method used to pick a tray and place it on an agv.
+    - :python:`_frame_world_pose(self, frame_id)`: Gets a pose from the transform buffer in relation to the world frame.
     - :python:`_move_floor_robot_cartesian(self, waypoints)`: Private method that takes in a list of waypoints and uses :python:`_call_get_cartesian_path` method to move along the waypoints.
     - :python:`_move_floor_robot_to_pose(self, pose)`: Private method that takes in a pose, makes a pose_stamped, and uses :python:`_plan_and_execute` to move to the pose.
     - :python:`_makeMesh(self, name, pose, filename)`: Private method that uses the parameters to make a mesh and from that, returns a collision object.
