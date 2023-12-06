@@ -1603,474 +1603,53 @@ The competition interface from :ref:`Tutorial 8 <TUTORIAL8>` was augmented with 
     - :python:`complete_kitting_order(self, kitting_task)`: Private method used to complete a kitting order using the other methods in the class.
     - :python:`_floor_robot_pick_and_place_tray(self, tray_id, agv_number)`: Private method used to pick a tray and place it on an agv.
     - :python:`_frame_world_pose(self, frame_id)`: Gets a pose from the transform buffer in relation to the world frame.
-    - :python:`_move_floor_robot_cartesian(self, waypoints)`: Private method that takes in a list of waypoints and uses :python:`_call_get_cartesian_path` method to move along the waypoints.
-    - :python:`_move_floor_robot_to_pose(self, pose)`: Private method that takes in a pose, makes a pose_stamped, and uses :python:`_plan_and_execute` to move to the pose.
-    - :python:`_makeMesh(self, name, pose, filename)`: Private method that uses the parameters to make a mesh and from that, returns a collision object.
-    - :python:`_add_model_to_planning_scene(self, name, mesh_file, mesh_pose)`: Private method that opens the mesh file, gets the collision object from :python:`_makeMesh`, and applys the collision object to the planning scene.
-    - :python:`add_objects_to_planning_scene(self)`: Public method that reads in the `collision_object_info.yaml` file as a dictionary. Then, it loops through each object and adds the model to the planning scene.
-    - :python:`_left_bins_camera_cb(self,msg)`: Private method that gets the part poses and the sensor pose from the left bins camera.
-    - :python:`_right_bins_camera_cb(self,msg)`: Private method that gets the part poses and the sensor pose from the right bins camera.
-    - :python:`_floor_robot_wait_for_attach(self, timeout)`: Private method used to slowly move down until the part is picked up.
-    - :python:`floor_robot_pick_bin_part(self, part_to_pick)`: Public method that uses moveit_py to pick up the type of part that was passed in.
+    - :python:`_floor_robot_place_part_on_kit_tray(self, agv_num, quadrant)`: Private method takes in the agv number and quadrant and places the part attached to the floor gripper onto the tray on the given agv.
+    - :python:`_floor_robot_change_gripper(self, station, gripper_type)`: Private method that takes in a station and gripper type and changes the gripper on the floor robot.
+    - :python:`submit order(self, name, pose, filename)`: Private method takes in an order id and calls the `submit_order` service.
+    - :python:`move_agv(self, name, num, destination)`: Private method that takes in the number of the agv and the destination and calls the move agv service for the correct agv to move to that location.
+    - :python:`_makeAttachedMesh(self, name, pose, filename)`: Private method that creates an attached mesh. This is used to attach a part to the floor gripper when it is picked up.
+    - :python:`apply_planning_scene(self,scene)`: Private method that takes in a planning scene and calls the `apply_planning_scene` service.
+    - :python:`get_planning_scene_msg(self,msg)`: Private method that gets the current planning scene.
+    - :python:`_attach_model_to_floor_gripper(self, part_to_pick, part_pose)`: Private method which attaches a part to the floor gripper in the planning scene.
+    - :python:`_remove_model_from_floor_gripper(self)`: Private method which removes a model from the floor gripper.
+    - :python:`ceiling_robot_move_to_joint_position(self,position_name)`: Private method which moves the ceiling robot to one of the named ceiling robot joint positions.
+    - :python:`_create_ceiling_joint_position_state(self,joint_positions)`: Private method which takes in a list of joint positions and returns a dictionary in the correct format.
+    - :python:`floor_robot_move_to_joint_position(self,position_name)`: Private method which moves the floor robot to one of the named floor robot joint positions.
+    - :python:`_create_floor_joint_position_state(self,joint_positions)`: Private method which takes in a list of joint positions and returns a dictionary in the correct format.
+    - :python:`_create_floor_joint_position_dict(self,dict_positions)`: Private method which takes in a dictionary of positions. It takes the current joint states, adds in the new positions from the dict parameter, and returns the resulting dictionary.
+    - :python:`floor_robot_move_joints_dict(self, dict_positions)`: Private method which takes in a dictionary of positions and moves the passed in positions to the given values.
 
-collision_object_info.yaml
+
+tutorial10.py
 ---------------
 
-This file contains all of the information for the collision objects needed in the planning scene.
-
-    .. code-block:: yaml
-
-        bin1:
-            position:
-            - -1.9
-            - 3.375
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: bin.stl
-            bin2:
-            position:
-            - -1.9
-            - 2.625
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: bin.stl
-            bin3:
-            position:
-            - -1.9
-            - -3.375
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: bin.stl
-            bin4:
-            position:
-            - -1.9
-            - -2.625
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: bin.stl
-            bin5:
-            position:
-            - -2.65
-            - 3.375
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: bin.stl
-            bin6:
-            position:
-            - -2.65
-            - 2.625
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: bin.stl
-            bin7:
-            position:
-            - -2.65
-            - -3.375
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: bin.stl
-            bin8:
-            position:
-            - -2.65
-            - -2.625
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: bin.stl
-            as1:
-            position:
-            - -7.3
-            - 3.0
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: assembly_station.stl
-            as2:
-            position:
-            - -7.3
-            - -3.0
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: assembly_station.stl
-            as3:
-            position:
-            - -12.3
-            - 3.0
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: assembly_station.stl
-            as4:
-            position:
-            - -12.3
-            - -3.0
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: assembly_station.stl
-            assembly_insert1:
-            position:
-            - -7.7
-            - 3.0
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: assembly_insert.stl
-            assembly_insert2:
-            position:
-            - -7.7
-            - -3.0
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: assembly_insert.stl
-            assembly_insert3:
-            position:
-            - -12.7
-            - 3.0
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: assembly_insert.stl
-            assembly_insert4:
-            position:
-            - -12.7
-            - -3.0
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: assembly_insert.stl
-            conveyor:
-            position:
-            - -0.6
-            - 0
-            - 0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: conveyor.stl
-            kts1_table:
-            position:
-            - -1.3
-            - 5.84
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: kit_tray_table.stl
-            kts2_table:
-            position:
-            - -1.3
-            - -5.84
-            - 0.0
-            orientation:
-            - 0.0
-            - 0.0
-            - 0.0
-            - 1.0
-            file: kit_tray_table.stl
-
-
-tutorial9_config.yaml
----------------
-
-This file launches the node with the correct settings for moveit_py.
-
-    .. code-block:: yaml
-
-        planning_scene_monitor_options:
-            name: "planning_scene_monitor"
-            robot_description: "robot_description"
-            joint_state_topic: "/joint_states"
-            attached_collision_object_topic: "/planning_scene_monitor"
-            publish_planning_scene_topic: "/publish_planning_scene"
-            monitored_planning_scene_topic: "/monitored_planning_scene"
-            wait_for_initial_state_timeout: 10.0
-
-            planning_pipelines:
-            # !! NOTE: pipeline_names seem to be causing conflicts with package moveit_configs_utils default
-            #          config files in the default_config folder, see NOTE in next section below for solution
-            pipeline_names: ["ompl"]  #, "ompl_rrt_star"]
-
-
-            # Default
-            plan_request_params:
-            planning_attempts: 1
-            planning_pipeline: ompl
-            planner_id: BiTRRT
-            max_velocity_scaling_factor: 1.0
-            max_acceleration_scaling_factor: 1.0
-            planning_time: 1.0
-
-
-            # !! NOTE: Make sure these namespaces are not the same names as what are in
-            #          package moveit_configs_utils default config files in the default_config folder
-            ompl_rrtc:  # Namespace for individual plan request
-            plan_request_params:  # PlanRequestParameters similar to the ones that are used by the single pipeline planning of moveit_cpp
-                planning_attempts: 1  # Number of attempts the planning pipeline tries to solve a given motion planning problem
-                planning_pipeline: ompl  # Name of the pipeline that is being used
-                planner_id: RRTConnect  # Name of the specific planner to be used by the pipeline
-                max_velocity_scaling_factor: 1.0  # Velocity scaling parameter for the trajectory generation algorithm that is called (if configured) after the path planning
-                max_acceleration_scaling_factor: 1.0  # Acceleration scaling parameter for the trajectory generation algorithm that is called (if configured) after the path planning
-                planning_time: 1.0  # Time budget for the motion plan request. If the planning problem cannot be solved within this time, an empty solution with error code is returned
-
-            pilz_lin:
-            plan_request_params:
-                planning_attempts: 1
-                planning_pipeline: pilz_industrial_motion_planner
-                planner_id: PTP
-                max_velocity_scaling_factor: 1.0
-                max_acceleration_scaling_factor: 1.0
-                planning_time: 0.8
-
-            chomp_b:  # This was changed because it conflicts with the chomp default config in moveit_configs_utils
-            plan_request_params:
-                planning_attempts: 1
-                planning_pipeline: chomp
-                planner_id: chomp
-                max_velocity_scaling_factor: 1.0
-                max_acceleration_scaling_factor: 1.0
-                planning_time: 1.5
-
-            # Second OMPL pipeline
-            ompl_rrt_star:
-            plan_request_params:
-                planning_attempts: 1
-                # planning_pipeline: ompl_rrt_star # Different OMPL pipeline name!  # Original, but gave errors in runtime
-                planning_pipeline: ompl
-                planner_id: RRTstar
-                max_velocity_scaling_factor: 1.0
-                max_acceleration_scaling_factor: 1.0
-                planning_time: 1.5
-
-            stomp_b:  # Added this
-            plan_request_params:
-                planning_attempts: 1
-                planning_pipeline: stomp
-                planner_id: stomp
-                max_velocity_scaling_factor: 1.0
-                max_acceleration_scaling_factor: 1.0
-                planning_time: 1.5
-
-tutorial9.launch.py
----------------
-
-This file launches the main node for this tutorial.
-
-    .. code-block:: python
-
-        import os
-        from pytest import param
-        import yaml
-
-        from launch import LaunchDescription
-        from launch.actions import (
-            DeclareLaunchArgument,
-            OpaqueFunction,
-        )
-
-        from moveit_configs_utils import MoveItConfigsBuilder
-
-        from launch.substitutions import Command, FindExecutable, PathJoinSubstitution, LaunchConfiguration
-        from launch.conditions import IfCondition
-        from launch_ros.actions import Node
-
-        from launch_ros.substitutions import FindPackageShare
-
-        from ament_index_python.packages import get_package_share_directory
-
-
-        def load_file(package_name, file_path):
-            package_path = get_package_share_directory(package_name)
-            absolute_file_path = os.path.join(package_path, file_path)
-
-            try:
-                with open(absolute_file_path, "r") as file:
-                    return file.read()
-            except EnvironmentError:  # parent of IOError, OSError *and* WindowsError where available
-                return None
-
-        def load_yaml(package_name, file_path):
-            package_path = get_package_share_directory(package_name)
-            absolute_file_path = os.path.join(package_path, file_path)
-
-            try:
-                with open(absolute_file_path, "r") as file:
-                    return yaml.safe_load(file)
-            except EnvironmentError:  # parent of IOError, OSError *and* WindowsError where available
-                return None
-
-
-        def launch_setup(context, *args, **kwargs):
-
-            urdf = os.path.join(get_package_share_directory("ariac_description"), "urdf/ariac_robots/ariac_robots.urdf.xacro")
-
-            moveit_config = (
-                MoveItConfigsBuilder("ariac_robots", package_name="ariac_moveit_config")
-                .robot_description(urdf)
-                .robot_description_semantic(file_path="config/ariac_robots.srdf")
-                .trajectory_execution(file_path="config/moveit_controllers.yaml")
-                .planning_pipelines(pipelines=["ompl"])
-                .joint_limits(file_path="config/joint_limits.yaml")
-                .moveit_cpp(
-                    file_path=get_package_share_directory("ariac_tutorials")
-                    + "/config/tutorial9_config.yaml"
-                )
-                .to_moveit_configs()
-            )
-
-            trajectory_execution = {
-                "moveit_manage_controllers": False,
-                "trajectory_execution.allowed_execution_duration_scaling": 1.2,
-                "trajectory_execution.allowed_goal_duration_margin": 0.5,
-                "trajectory_execution.allowed_start_tolerance": 0.01,
-            }
-
-            planning_scene_monitor_parameters = {
-                "publish_planning_scene": True,
-                "publish_geometry_updates": True,
-                "publish_state_updates": True,
-                "publish_transforms_updates": True,
-            }
-            
-            parameters_dict = moveit_config.to_dict()
-            parameters_dict["use_sim_time"] = True
-            parameters_dict.update(trajectory_execution)
-            parameters_dict.update(planning_scene_monitor_parameters)
-            moveit_py_test = Node(
-                package="ariac_tutorials",
-                executable="tutorial_9.py",
-                output="screen",
-                parameters=[
-                    parameters_dict
-                ],
-            )
-            start_rviz = LaunchConfiguration("rviz")
-
-            rviz_config_file = PathJoinSubstitution(
-                [FindPackageShare("test_competitor"), "rviz", "test_competitor.rviz"]
-            )
-
-            rviz_node = Node(
-                package="rviz2",
-                executable="rviz2",
-                name="rviz2_moveit",
-                output="log",
-                arguments=["-d", rviz_config_file],
-                parameters=[
-                    moveit_config.to_dict(),
-                    {"use_sim_time": True},
-                ],
-                condition=IfCondition(start_rviz)
-            )
-
-            nodes_to_start = [
-                moveit_py_test,
-                rviz_node
-            ]
-
-            return nodes_to_start
-
-        def generate_launch_description():
-            declared_arguments = []
-
-            declared_arguments.append(
-                DeclareLaunchArgument("rviz", default_value="false", description="start rviz node?")
-            )
-            return LaunchDescription(declared_arguments + [OpaqueFunction(function=launch_setup)])
-
-tutorial9.py
----------------
-
-This is the main node for this tutorial. It makes a part object, and then uses the new code in the competition interface to pick up a part that matches.
+This is the main node for this tutorial. It creates a thread which spins the competition_interface class to run the callbacks. In the main thread, it starts the competition and runs the `complete_orders` function.
 
     .. code-block:: python
         #!/usr/bin/env python3
         '''
         To test this script, run the following commands in separate terminals:
         - ros2 launch ariac_gazebo ariac.launch.py trial_name:=tutorial competitor_pkg:=ariac_tutorials
-        - ros2 run ariac_tutorials tutorial_9.py
+        - ros2 run ariac_tutorials tutorial_10.py
         '''
-
+        import threading
         import rclpy
         from ariac_tutorials.competition_interface import CompetitionInterface
         from ariac_msgs.msg import Part
+        from rclpy.executors import MultiThreadedExecutor
 
         def main(args=None):
             rclpy.init(args=args)
             interface = CompetitionInterface()
+            executor = MultiThreadedExecutor()
+            executor.add_node(interface)
 
+            spin_thread = threading.Thread(target=executor.spin)
+            spin_thread.start()
+            
             interface.start_competition()
-            interface.wait(3)
-            interface.get_logger().info("Competition started. Adding collision objects to planning scene")
-
-            part_to_pick = Part()
-            part_to_pick.type = Part.PUMP
-            part_to_pick.color = Part.PURPLE
-
-            interface.add_objects_to_planning_scene()
-            interface.move_floor_robot_home()
-            interface.floor_robot_pick_bin_part(part_to_pick)
+            
+            interface.complete_orders()
 
             interface.destroy_node()
             rclpy.shutdown()
@@ -2078,6 +1657,7 @@ This is the main node for this tutorial. It makes a part object, and then uses t
 
         if __name__ == '__main__':
             main()
+
 
 Run the Executable
 ==================
@@ -2099,7 +1679,7 @@ Run the Executable
         cd ~/ariac_ws
         colcon build
         . install/setup.bash
-        ros2 launch ariac_tutorials tutorial9.launch.py
+        ros2 launch ariac_tutorials tutorial10.launch.py
 
 
     The node will wait until the competition is ready.
@@ -2111,12 +1691,12 @@ Run the Executable
 
         cd ~/ariac_ws
         . install/setup.bash
-        ros2 launch ariac_gazebo ariac.launch.py trial_name:=tutorial competitor_pkg:=ariac_tutorials
+        ros2 launch ariac_gazebo ariac.launch.py trial_name:=tutorial competitor_pkg:=ariac_tutorials dev_mode:=True
 
 
 Outputs
 =======
 
-The floor robot will move to the home position. Then, it will pick up a purple pump.
+The floor robot will move to the home position. Then, it will complete a kitting order.
 
 

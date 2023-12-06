@@ -1540,7 +1540,7 @@ Run the Executable
 
         cd ~/ariac_ws
         . install/setup.bash
-        ros2 launch ariac_gazebo ariac.launch.py trial_name:=tutorial competitor_pkg:=ariac_tutorials
+        ros2 launch ariac_gazebo ariac.launch.py trial_name:=tutorial competitor_pkg:=ariac_tutorials dev_mode:=True
 
 
 Outputs
