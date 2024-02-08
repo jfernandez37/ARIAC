@@ -789,7 +789,7 @@ class GUI_CLASS(ctk.CTk):
         self.bin_selection = ctk.StringVar()
         self.bin_selection.set(ALL_BINS[0])
         bin_label = ctk.CTkLabel(self.bin_parts_frame,text="Select the bin you would like to add parts to:")
-        bin_label.grid(column = MIDDLE_COLUMN, columnspan = 2,row=1)
+        bin_label.grid(column = LEFT_COLUMN, columnspan = 3,row=1)
         bin_menu = ctk.CTkOptionMenu(self.bin_parts_frame,
                                         variable=self.bin_selection,
                                         values=ALL_BINS,
@@ -799,13 +799,13 @@ class GUI_CLASS(ctk.CTk):
                                         button_hover_color="#9e9e9e",
                                         anchor='center',
                                         )
-        bin_menu.grid(column = MIDDLE_COLUMN, columnspan = 2,row=2)
+        bin_menu.grid(column = LEFT_COLUMN, columnspan = 3,row=2)
         assembly_stations_label = ctk.CTkLabel(self.bin_parts_frame,text="↑↑↑ Assembly Stations ↑↑↑")
-        assembly_stations_label.grid(column = MIDDLE_COLUMN, columnspan = 2,row=3)
+        assembly_stations_label.grid(column = LEFT_COLUMN, columnspan = 3,row=3)
         bin_map_canvas = Canvas(self.bin_parts_frame, height = 250, width=255,bd = 0, highlightthickness=0)
         self.all_canvases.append(bin_map_canvas)
         self.show_map(bin_map_canvas, self.bin_selection)
-        bin_map_canvas.grid(column=RIGHT_COLUMN, sticky="we",row = 4,padx=25)
+        bin_map_canvas.grid(column=RIGHT_COLUMN, sticky="we",row = 4,padx=85)
         self.bin_parts_canvas = Canvas(self.bin_parts_frame, height=320,bd = 0, highlightthickness=0)
         self.all_canvases.append(self.bin_parts_canvas)
         
@@ -813,19 +813,20 @@ class GUI_CLASS(ctk.CTk):
                                 outline = "black", fill = "#60c6f1",
                                 width = 2)
         self.show_grid(self.bin_selection,self.bin_parts_canvas,self.bin_parts_frame)
-        self.bin_parts_canvas.grid(column = MIDDLE_COLUMN, sticky = "we", row=4)
+        self.bin_parts_canvas.grid(column = LEFT_COLUMN, sticky = "we", row=4, padx=15)
         conveyor_belt_label = ctk.CTkLabel(self.bin_parts_frame,text="↓↓↓ Conveyor Belt ↓↓↓")
-        conveyor_belt_label.grid(column = MIDDLE_COLUMN, columnspan = 2)
+        conveyor_belt_label.grid(column = LEFT_COLUMN, columnspan = 3)
         add_multiple_parts_button = ctk.CTkButton(self.bin_parts_frame,text="Add multiple parts",command=partial(self.add_multiple_parts,self.bin_selection))
-        add_multiple_parts_button.grid(column = MIDDLE_COLUMN, columnspan = 2, pady = 5)
+        add_multiple_parts_button.grid(column = LEFT_COLUMN, columnspan = 3, pady = 5)
         clear_bin_button = ctk.CTkButton(self.bin_parts_frame, text="Clear bin", command = partial(self.clear_bin, self.bin_selection))
-        clear_bin_button.grid(column = MIDDLE_COLUMN, columnspan = 2, pady = 5)
+        clear_bin_button.grid(column = LEFT_COLUMN, columnspan = 3, pady = 5)
         flipped_meaning_label = ctk.CTkLabel(self.bin_parts_frame, text="When a part is flipped, an \"F\" will show up in the bottom right of the part image.")
-        flipped_meaning_label.grid(column = MIDDLE_COLUMN, columnspan = 2,pady = 10)
+        flipped_meaning_label.grid(column = LEFT_COLUMN, columnspan = 3,pady = 10)
         self.bin_selection.trace_add('write',partial(self.update_bin_grid, self.bin_selection,self.bin_parts_canvas,self.bin_parts_frame))
         self.bin_selection.trace_add('write',partial(self.update_map,bin_map_canvas, self.bin_selection))
         self.bin_parts_counter.trace_add('write',partial(self.update_bin_grid, self.bin_selection,self.bin_parts_canvas,self.bin_parts_frame))
         self.bin_parts_counter.trace_add('write',partial(self.update_map,bin_map_canvas, self.bin_selection))
+    
     def clear_bin(self, bin_selection):
         current_bin = bin_selection.get()
         self.current_bin_parts[current_bin]=["" for _ in range(9)]
