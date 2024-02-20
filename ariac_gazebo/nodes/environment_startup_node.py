@@ -22,18 +22,6 @@ def main():
     # Spawn sensors
     startup_node.spawn_sensors()
 
-    # Spawn assembly inserts
-    startup_node.spawn_assembly_inserts()
-
-    # Spawn parts in bins
-    startup_node.spawn_bin_parts()
-
-    # Spawn kit trays
-    startup_node.spawn_kit_trays()
-
-    # Spawn trays and parts on AGVs
-    startup_node.spawn_parts_on_agvs()
-
     # Read conveyor part config
     startup_node.parse_conveyor_config()
 

@@ -20,7 +20,6 @@
   <!-- Locate Robot Macros -->
   <xacro:include filename="$(find ariac_description)/urdf/floor_robot/floor_robot_macro.xacro"/>
   <xacro:include filename="$(find ariac_description)/urdf/ceiling_robot/ceiling_robot_macro.xacro"/>
-  <xacro:include filename="$(find ariac_description)/urdf/agv/agv_macro.xacro"/>
 
   <!-- Define arguments for robot cameras -->
   <xacro:arg name="floor_robot_camera_active_arg" default="false"/>
@@ -47,35 +46,11 @@
     camera_type="${ceiling_robot_camera_type}">
   </xacro:ceiling_robot>
 
-  <!-- AGV1 -->
-  <xacro:agv
-    agv_number="agv1"
-    y_position="4.8" >
-  </xacro:agv>
-
-  <!-- AGV2 -->
-  <xacro:agv
-    agv_number="agv2"
-    y_position="1.2" >
-  </xacro:agv>
-
-  <!-- AGV3 -->
-  <xacro:agv
-    agv_number="agv3"
-    y_position="-1.2" >
-  </xacro:agv>
-
-  <!-- AGV4 -->
-  <xacro:agv
-    agv_number="agv4"
-    y_position="-4.8" >
-  </xacro:agv>
-
   <gazebo 
     reference="world">
   </gazebo>
 
-  <!-- ROS2 Control Plugin -->
+  <!-- ROS2 Control Plugin -->Z
   <xacro:arg name="controllers" default="$(find ariac_description)/config/robot_controllers.yaml" />
 
   <gazebo>
