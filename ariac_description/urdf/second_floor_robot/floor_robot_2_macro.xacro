@@ -39,7 +39,7 @@
       visual_parameters_file="$(find ur_description)/config/ur10e/visual_parameters.yaml"
       sim_gazebo="true"
       initial_positions="${xacro.load_yaml(initial_positions_file)}">
-      <origin xyz="7.0 0.0 0.0" rpy="0.0 0.0 ${pi}"/>
+      <origin xyz="6.5 0.25 0.0" rpy="0.0 0.0 ${pi}"/>
     </xacro:ur_robot>
 
     

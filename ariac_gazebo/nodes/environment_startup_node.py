@@ -22,6 +22,9 @@ def main():
     # Spawn sensors
     startup_node.spawn_sensors()
 
+    # Spawn bin parts
+    startup_node.spawn_bin_parts()
+
     # Read conveyor part config
     startup_node.parse_conveyor_config()
 

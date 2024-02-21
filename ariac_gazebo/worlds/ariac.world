@@ -40,6 +40,19 @@
       <pose>0 0 0 0 0 0</pose>
     </include>
 
+    <!-- Spawn Bins -->
+    <include>
+      <name>bin1</name>
+      <uri>model://parts_bin</uri>
+      <pose>0.27 2.8 0.0 0 3.1416</pose>
+    </include>
+
+    <include>
+      <name>bin2</name>
+      <uri>model://parts_bin</uri>
+      <pose>0.27 -2.325 0.0 0 0 3.1416</pose>
+    </include>
+
 
     <!-- Insert Conveyor Belt -->
     <include>

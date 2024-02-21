@@ -197,8 +197,7 @@ class EnvironmentStartup(Node):
         try:
             orders = self.trial_config["orders"]
         except KeyError:
-            self.get_logger().fatal("No orders found in trial configuration file...exiting")
-            return
+            self.get_logger().fatal("No orders found in trial configuration file")
 
         # Retrieve challenges
         try:
@@ -975,6 +974,115 @@ class EnvironmentStartup(Node):
 
         return lot
 
+    def spawn_bin_parts(self):
+        possible_bins = ['bin1', 'bin2']
+
+        slot_info = {
+            1: {"x_offset": 0.18, "y_offset": 0.18},
+            2: {"x_offset": 0.18, "y_offset": 0.0},
+            3: {"x_offset": 0.18, "y_offset": -0.18},
+            4: {"x_offset": 0.0, "y_offset": 0.18},
+            5: {"x_offset": 0.0, "y_offset": 0.0},
+            6: {"x_offset": 0.0, "y_offset": -0.18},
+            7: {"x_offset": -0.18, "y_offset": 0.18},
+            8: {"x_offset": -0.18, "y_offset": 0.0},
+            9: {"x_offset": -0.18, "y_offset": -0.18},
+        }
+
+        # Validate input
+        try:
+            bin_parts_config = self.trial_config["parts"]["bins"]
+        except KeyError:
+            self.get_logger().warn(bcolors.WARNING + "No bin parts found in configuration" + bcolors.ENDC)
+            return
+
+        if not bin_parts_config:
+            return
+
+        part_count = 0
+        for bin_name in bin_parts_config.keys():
+            if not bin_name in possible_bins:
+                self.get_logger().warn(bcolors.WARNING + f"{bin_name} is not a valid bin name" + bcolors.ENDC)
+                continue
+
+            try:
+                bin_transform = self.tf_buffer.lookup_transform(
+                    'world', bin_name + "_frame", rclpy.time.Time())
+            except TransformException as ex:
+                self.get_logger().info(
+                    f'Could not transform {bin_name}_frame to world: {ex}')
+                return
+
+            # Fill bin info msg for each bin that has parts
+            bin_info = BinInfo()
+            bin_info.bin_number = int(bin_name[-1])
+
+            available_slots = list(range(1, 10))
+            for part_info in bin_parts_config[bin_name]:
+                ret, part = self.parse_part_info(part_info)
+                if not ret:
+                    continue
+
+                try:
+                    slots = part_info['slots']
+                    if not type(slots) == list:
+                        self.get_logger().warn(bcolors.WARNING + "slots parameter should be a list of integers" + bcolors.ENDC)
+                        continue
+                except KeyError:
+                    self.get_logger().warn(bcolors.WARNING + "Part slots are not specified" + bcolors.ENDC)
+                    continue
+
+                # Spawn parts into slots
+                num_parts_in_bin = 0
+                for slot in slots:
+                    if not slot in slot_info.keys():
+                        self.get_logger().warn(bcolors.WARNING + f"Slot {slot} is not a valid option" + bcolors.ENDC)
+                        continue
+                    elif not slot in available_slots:
+                        self.get_logger().warn(bcolors.WARNING + f"Slot {slot} is already occupied" + bcolors.ENDC)
+                        continue
+
+                    num_parts_in_bin += 1
+
+                    available_slots.remove(slot)
+
+                    part_name = part.type + "_" + part.color + "_b" + str(part_count).zfill(2)
+                    part_count += 1
+
+                    if part.flipped:
+                        roll = math.pi
+                    else:
+                        roll = 0
+
+                    yaw = convert_pi_string_to_float(part.rotation)
+
+                    q = quaternion_from_euler(roll, 0, yaw)
+                    rel_pose = Pose()
+                    rel_pose.position.x = slot_info[slot]["x_offset"]
+                    rel_pose.position.y = slot_info[slot]["y_offset"]
+
+                    if part.flipped:
+                        rel_pose.position.z = part.height
+
+                    rel_pose.orientation.w = q[0]
+                    rel_pose.orientation.x = q[1]
+                    rel_pose.orientation.y = q[2]
+                    rel_pose.orientation.z = q[3]
+
+                    world_pose = do_transform_pose(rel_pose, bin_transform)
+
+                    xyz = [world_pose.position.x, world_pose.position.y, world_pose.position.z]
+                    rpy = euler_from_quaternion(world_pose.orientation)
+
+                    params = PartSpawnParams(part_name, part.type, part.color, xyz=xyz, rpy=rpy)
+
+                    self.spawn_entity(params, wait=True)
+                    self.get_logger().info("Part spawned"+"\n"*10)
+                bin_info.parts.append(
+                    self.fill_part_lot_msg(part, num_parts_in_bin))
+
+            self.bin_parts.bins.append(bin_info)
+    
     def spawn_conveyor_part(self):
         if self.conveyor_enabled:
             part_params = next(self.conveyor_parts_to_spawn_cycle)

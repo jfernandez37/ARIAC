@@ -148,9 +148,9 @@ def launch_setup(context, *args, **kwargs):
         'joint_state_broadcaster',
         'floor_robot_controller',
         'floor_robot_2_controller',
-        'linear_rail_controller',
         'floor_robot_static_controller',
-        'floor_robot_2_static_controller'
+        'floor_robot_2_static_controller',
+        'linear_rail_controller'
     ]
 
     controller_spawner_nodes = []
