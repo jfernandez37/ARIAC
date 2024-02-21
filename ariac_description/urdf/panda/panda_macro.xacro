@@ -1,0 +1,49 @@
+<?xml version="1.0" ?>
+
+<robot xmlns:xacro="http://wiki.ros.org/xacro">
+  <xacro:macro name="panda" params="
+    camera_active
+    camera_type
+  ">
+
+    <!-- Inclue macros -->
+    <xacro:include filename="$(find franka_description)/robots/panda_arm.xacro"/>
+    <xacro:include filename="$(find franka_description)/robots/hand.xacro"/>
+    <xacro:include filename="$(find franka_description)/robots/panda_arm.ros2_control.xacro"/>
+
+    <material name="Black2">
+      <color rgba="${50/255} ${50/255} ${50/255} 1.0"/>
+    </material>
+
+    <material name="Gray">
+      <color rgba="${200/255} ${200/255} ${200/255} 1.0"/>
+    </material>
+
+    <!-- Add cart link -->
+    <link name="cart_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <mesh filename="package://ariac_description/meshes/franka_stuff/cart.stl"/>
+        </geometry>
+        <material name="Gray"/>
+      </visual>
+    </link>
+
+    <!-- Run panda macro -->
+    <xacro:panda_arm
+      arm_id="panda"
+      safety_distance="0.0"
+      connected_to="cart_link"
+      xyz="0.05 0 0"
+      sim_gazebo="true"/>
+      
+
+    <!-- Joints -->
+    <joint name="cart_to_world" type="fixed">
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <parent link="world"/>
+      <child link="cart_link" />
+    </joint>
+  </xacro:macro>
+</robot>

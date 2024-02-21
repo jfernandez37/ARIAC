@@ -46,7 +46,7 @@
     <joint name="world_to_base" type="fixed">
       <parent link="${parent}"/>
       <child link="slide_bar"/>
-      <origin xyz="0.2 3.0 0.8" rpy="0.0 0.0 1.57"/>
+      <origin xyz="0.2 -3.0 0.8" rpy="0.0 0.0 1.57"/>
     </joint>
 
     <joint name="linear_actuator_joint" type="prismatic">

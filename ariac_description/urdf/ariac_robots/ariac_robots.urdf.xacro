@@ -19,7 +19,7 @@
 
   <!-- Locate Robot Macros -->
   <xacro:include filename="$(find ariac_description)/urdf/floor_robot/floor_robot_macro.xacro"/>
-  <xacro:include filename="$(find ariac_description)/urdf/ceiling_robot/ceiling_robot_macro.xacro"/>
+  <xacro:include filename="$(find ariac_description)/urdf/second_floor_robot/floor_robot_2_macro.xacro"/>
 
   <!-- Define arguments for robot cameras -->
   <xacro:arg name="floor_robot_camera_active_arg" default="false"/>
@@ -40,11 +40,10 @@
     camera_type="${floor_robot_camera_type}">
   </xacro:floor_robot>
 
-  <!-- Ceiling Robot -->
-  <xacro:ceiling_robot
+  <xacro:floor_robot_2
     camera_active="${ceiling_robot_camera_active}"
     camera_type="${ceiling_robot_camera_type}">
-  </xacro:ceiling_robot>
+  </xacro:floor_robot_2>
 
   <gazebo 
     reference="world">

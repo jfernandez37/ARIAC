@@ -147,15 +147,10 @@ def launch_setup(context, *args, **kwargs):
     controller_names = [
         'joint_state_broadcaster',
         'floor_robot_controller',
-        'ceiling_robot_controller',
+        'floor_robot_2_controller',
         'linear_rail_controller',
-        'gantry_controller',
-        'agv1_controller',
-        'agv2_controller',
-        'agv3_controller',
-        'agv4_controller',
         'floor_robot_static_controller',
-        'ceiling_robot_static_controller',
+        'floor_robot_2_static_controller'
     ]
 
     controller_spawner_nodes = []
