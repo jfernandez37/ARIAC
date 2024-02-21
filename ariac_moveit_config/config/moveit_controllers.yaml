@@ -10,9 +10,8 @@ moveit_controller_manager: moveit_simple_controller_manager/MoveItSimpleControll
 moveit_simple_controller_manager:
   controller_names:
     - floor_robot_controller
-    - ceiling_robot_controller
+    - floor_robot_2_controller
     - linear_rail_controller
-    - gantry_controller
 
   floor_robot_controller:
     type: FollowJointTrajectory
@@ -25,18 +24,18 @@ moveit_simple_controller_manager:
       - floor_wrist_1_joint
       - floor_wrist_2_joint
       - floor_wrist_3_joint
-
-  ceiling_robot_controller:
+  
+  floor_robot_2_controller:
     type: FollowJointTrajectory
     action_ns: follow_joint_trajectory
     default: true
     joints:
-      - ceiling_shoulder_pan_joint
-      - ceiling_shoulder_lift_joint
-      - ceiling_elbow_joint
-      - ceiling_wrist_1_joint
-      - ceiling_wrist_2_joint
-      - ceiling_wrist_3_joint
+      - floor_2_shoulder_pan_joint
+      - floor_2_shoulder_lift_joint
+      - floor_2_elbow_joint
+      - floor_2_wrist_1_joint
+      - floor_2_wrist_2_joint
+      - floor_2_wrist_3_joint
 
   linear_rail_controller:
     type: FollowJointTrajectory
@@ -44,12 +43,3 @@ moveit_simple_controller_manager:
     default: true
     joints:
       - linear_actuator_joint
-
-  gantry_controller:
-    type: FollowJointTrajectory
-    action_ns: follow_joint_trajectory
-    default: true
-    joints:
-      - gantry_x_axis_joint
-      - gantry_y_axis_joint
-      - gantry_rotation_joint

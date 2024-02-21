@@ -1077,7 +1077,6 @@ class EnvironmentStartup(Node):
                     params = PartSpawnParams(part_name, part.type, part.color, xyz=xyz, rpy=rpy)
 
                     self.spawn_entity(params, wait=True)
-                    self.get_logger().info("Part spawned"+"\n"*10)
                 bin_info.parts.append(
                     self.fill_part_lot_msg(part, num_parts_in_bin))
 
@@ -1087,7 +1086,6 @@ class EnvironmentStartup(Node):
         if self.conveyor_enabled:
             part_params = next(self.conveyor_parts_to_spawn_cycle)
             part_params.name = part_params.name[:part_params.name.find("_c") + 2] + str(next(self.conveyor_part_counter))
-            self.get_logger().info(part_params.name)
             self.spawn_entity(part_params, wait=False)
 
         if not self.conveyor_parts_to_spawn:

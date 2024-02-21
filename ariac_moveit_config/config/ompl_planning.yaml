@@ -92,7 +92,7 @@ floor_arm:
     - PRMstarkConfigDefault
   longest_valid_segment_fraction: 0.01
 
-ceiling_robot:
+floor_robot_2:
   planner_configs:
     - SBLkConfigDefault
     - ESTkConfigDefault
@@ -107,22 +107,7 @@ ceiling_robot:
     - PRMstarkConfigDefault
   longest_valid_segment_fraction: 0.01
 
-ceiling_arm:
-  planner_configs:
-    - SBLkConfigDefault
-    - ESTkConfigDefault
-    - LBKPIECEkConfigDefault
-    - BKPIECEkConfigDefault
-    - KPIECEkConfigDefault
-    - RRTkConfigDefault
-    - RRTConnectkConfigDefault
-    - RRTstarkConfigDefault
-    - TRRTkConfigDefault
-    - PRMkConfigDefault
-    - PRMstarkConfigDefault
-  longest_valid_segment_fraction: 0.01
-
-gantry:
+floor_arm_2:
   planner_configs:
     - SBLkConfigDefault
     - ESTkConfigDefault
