@@ -22,6 +22,7 @@ import yaml
 from copy import copy, deepcopy
 from datetime import datetime
 import subprocess
+from time import sleep
 
 from ariac_msgs.msg import (
     Part as PartMsg,
@@ -3032,16 +3033,16 @@ class GUI_CLASS(ctk.CTk):
                 challenges_data = yaml.dump(self.challenges_dict,sort_keys=False,Dumper=NoAliasDumper)
                 f.write(f"\n{challenges_data}\n")
             
-            build_package = self.build_package_var.get() == "1"
+        self.build_package = self.build_package_var.get() == "1"
+        
+        self.destroy()
+        
+        if self.build_package:
+            ws_path = os.path.join(*[str(item) for item in get_package_prefix("ariac_gazebo").split("/")[:-2]])
+            os.chdir("/" + ws_path)
             
-            self.destroy()
-            
-            if build_package:
-                ws_path = os.path.join(*[str(item) for item in get_package_prefix("ariac_gazebo").split("/")[:-2]])
-                os.chdir("/" + ws_path)
-                
-                build_cmd = "colcon build --packages-select ariac_gazebo"
-                subprocess.run(build_cmd, shell=True)
+            build_cmd = "colcon build --packages-select ariac_gazebo"
+            subprocess.run(build_cmd, shell=True)
                   
     # =======================================================
     #                    Current File
