@@ -2426,6 +2426,43 @@ class GUI_CLASS(ctk.CTk):
         self.order_counter.set(str(len(self.used_ids)))
         if 'order_submission' not in CONDITION_TYPE:
             CONDITION_TYPE.append('order_submission')
+    
+    def auto_generate_combined_order(self, num_parts, priority, insufficient_part, flipped_part, conveyor_part, agv_number):
+        new_order = OrderMsg()
+        self.used_ids.append(self.generate_order_id())
+        new_order.id = self.used_ids[-1]
+        
+        new_order.type = "assembly"
+        new_order.priority = True if priority == "1" else False
+        
+        new_combined_task = CombinedTaskMsg()
+        new_combined_task.station = agv_number
+        
+        combined_parts = []
+        for i in num_parts:
+            new_combined_part = PartMsg()
+            p = ""
+            if i == 0 and flipped_part == "1":
+                p = self.current_bin_parts["bin6"][self.randint(0,9)]
+            elif i==1 and conveyor_part == "1":
+                p = self.current_conveyor_parts[randint(0,len(self.current_conveyor_parts))]
+            else:
+                p = self.current_bin_parts[f"bin{[1,2,5][randint(0,2)]}"][self.randint(0,9)]
+            part_info = p.split(" ")
+            new_combined_part.color = _part_color_ints[part_info[0].upper()]
+            new_combined_part.type = _part_type_ints[part_info[1].upper()]
+            combined_parts.append(new_combined_part)
+            
+        new_combined_task.parts = combined_parts
+        
+        new_order.condition.type = CONDITION_TYPE[0]
+        new_order.condition.time_condition.seconds = float(agv_number-1)
+        
+        self.current_orders.append(new_order)
+        
+        self.order_counter.set(str(len(self.used_ids)))
+        if 'order_submission' not in CONDITION_TYPE:
+            CONDITION_TYPE.append('order_submission')
     # =======================================================
     #                  Challenges functions
     # =======================================================
