@@ -17,6 +17,7 @@ from functools import partial
 from PIL import Image  # needed for images in gui
 from math import pi
 import random
+from random import randint
 import string
 import yaml
 from copy import copy, deepcopy
@@ -46,6 +47,7 @@ from ariac_gui.utils import (build_competition_from_file,
                              BinPart, 
                              ConveyorPart,
                              AssemblyPart,
+                             AutoGenOrder,
                              CompetitionClass,
                              SLIDER_STR, 
                              SLIDER_VALUES, 
@@ -451,6 +453,7 @@ class GUI_CLASS(ctk.CTk):
         self.initial_label.grid_forget()
         self.load_file_button.grid_forget()
         self.new_file_button.grid_forget()
+        self.auto_generation_menu_button.grid_forget()
         self.notebook.grid(pady=10,column=LEFT_COLUMN, columnspan=3,sticky=tk.E+tk.W+tk.N+tk.S)
         self.save_file_button.grid(pady=10,column=RIGHT_COLUMN,row=4)
         self.build_package_cb.grid(pady=10, column=MIDDLE_COLUMN, row=4)
@@ -463,7 +466,9 @@ class GUI_CLASS(ctk.CTk):
         self.load_file_button = ctk.CTkButton(self, text="Load file", command = self._load_file)
         self.load_file_button.grid(column = LEFT_COLUMN, row = 2, pady = 85)
         self.new_file_button = ctk.CTkButton(self, text="New file", command = self.open_main_window)
-        self.new_file_button.grid(column = RIGHT_COLUMN, row = 2, pady = 85)
+        self.new_file_button.grid(column = MIDDLE_COLUMN, row = 2, pady = 85)
+        self.auto_generation_menu_button = ctk.CTkButton(self, text="Auto generate", command = self.run_auto_generation_window)
+        self.auto_generation_menu_button.grid(column = RIGHT_COLUMN, row = 2, pady=85)
 
     def _load_file(self):
         file_to_open=filedialog.askopenfile("r", filetypes =[('Yaml Files', '*.yaml')], initialdir=self.trials_file_location,title='Open ARIAC configuration',)
@@ -604,6 +609,7 @@ class GUI_CLASS(ctk.CTk):
         author_label.pack()
         author_entry = ctk.CTkEntry(self.setup_frame, textvariable=self.author)
         author_entry.pack()
+        
     # =======================================================
     #               Kitting Tray Functions
     # =======================================================
@@ -665,6 +671,13 @@ class GUI_CLASS(ctk.CTk):
         self.kitting_tray_canvas.create_window(((tray_coords["kts_2"][0]+tray_coords["kts_2"][2])//2,555),window=ctk.CTkLabel(self.kitting_tray_frame,text="kts_2"))
         self.kitting_tray_canvas.grid(row = 3,column = MIDDLE_COLUMN, sticky = "we")
     
+    def random_kitting_trays(self, needed_trays):
+        available_slots = [i for i in range(6)]
+        for i in range(6):
+            ind = randint(0,len(available_slots))
+            self.kitting_tray_selections[available_slots[ind]].set("0" if i < 3 else str(randint(1,9)))
+            del available_slots[ind]
+        
     def kitting_trays_to_dict(self):
         self.kitting_trays_dict = {}
         slots = []
@@ -751,6 +764,10 @@ class GUI_CLASS(ctk.CTk):
             except:
                 pass
         self.assembly_inserts_dict["assembly_inserts"] = {ASSEMBLY_STATIONS[i]:rotation_vals[i] for i in range(len(ASSEMBLY_STATIONS))}
+    
+    def random_rotations(self):
+        for insert_rotation in self.assembly_insert_rotations:
+            insert_rotation.set(SLIDER_VALUES[randint(0,len(SLIDER_VALUES)-1)])
     
     # =======================================================
     #                 AGV Parts Functions
@@ -938,18 +955,32 @@ class GUI_CLASS(ctk.CTk):
                 self.generate_random_bin_part(bin, index)
         self.bin_parts_counter.set(str(sum([sum([1 for part in self.current_bin_parts[key] if part!=""]) for key in self.current_bin_parts.keys()])))
 
-    
     def generate_random_bin_part(self, bin, index):
         part_color = random.randint(0,4)
         part_type = random.randint(10,13)
+        rotation = SLIDER_VALUES[random.randint(0,len(SLIDER_VALUES)-1)]
         self.current_bin_parts[bin][index]=PART_COLORS[part_color]+PART_TYPES[part_type-10]
         self.all_present_parts.append(PART_COLORS[part_color]+" "+PART_TYPES[part_type-10])
         temp_part = PartMsg()
         temp_part.color = part_color
         temp_part.type = part_type
         self.bin_parts[bin][index].part = temp_part
-        self.bin_parts[bin][index].rotation = SLIDER_VALUES[random.randint(0,len(SLIDER_VALUES)-1)]
+        self.bin_parts[bin][index].rotation = rotation
         self.bin_parts[bin][index].flipped = "0"
+    
+    def multiple_random_parts(self, bin, indeces : list[int], flipped = False):
+        part_color = random.randint(0,4)
+        part_type = random.randint(10,13)
+        rotation = SLIDER_VALUES[random.randint(0,len(SLIDER_VALUES)-1)]
+        for i in indeces:
+            self.current_bin_parts[bin][i]=PART_COLORS[part_color]+PART_TYPES[part_type-10]
+            self.all_present_parts.append(PART_COLORS[part_color]+" "+PART_TYPES[part_type-10])
+            temp_part = PartMsg()
+            temp_part.color = part_color
+            temp_part.type = part_type
+            self.bin_parts[bin][i].part = temp_part
+            self.bin_parts[bin][i].rotation = rotation
+            self.bin_parts[bin][i].flipped = "1" if flipped else"0"
 
     def add_bin_part(self,bin, index):
         bin_vals = {}
@@ -1120,6 +1151,12 @@ class GUI_CLASS(ctk.CTk):
                     except:
                         self.bin_parts_dict[bin] = []
                         self.bin_parts_dict[bin].append(temp_bin_part_dict)
+
+    def auto_fill_bins(self):
+        for b in [1,2, 5, 6]:
+            self.multiple_random_parts(b, [1,3,5,7,9], False if b != 6 else True)
+            self.multiple_random_parts(b, [2,4,6,8], False if b != 6 else True)
+        self.bin_parts_counter.set(str(sum([sum([1 for part in self.current_bin_parts[key] if part!=""]) for key in self.current_bin_parts.keys()])))
                     
     # =======================================================
     #               Conveyor Parts Functions
@@ -1404,6 +1441,29 @@ class GUI_CLASS(ctk.CTk):
                     pass
                 temp_conveyor_part_dict["rotation"] = rotation_val
                 self.conveyor_parts_dict["parts_to_spawn"].append(temp_conveyor_part_dict)
+    
+    def generate_random_conveyor_part_for_auto(self, num_parts, already_in_bins: list[str]):
+        parts_added = 0
+        while(parts_added<num_parts):
+            part_color = random.randint(0,4)
+            part_type = random.randint(10,13)
+            s_part_color = PART_COLORS[part_color]
+            s_part_type = PART_TYPES[part_type-10]
+            if f"{s_part_color} {s_part_type}" in already_in_bins + self.current_conveyor_parts:
+                continue
+            parts_added+=1
+            self.conveyor_parts.append(ConveyorPart(s_part_color, s_part_type,1,(random.uniform(-1.0,1.0)if s_part_type!="pump"else random.uniform(-0.9,0.9)), SLIDER_VALUES[random.randint(0,len(SLIDER_VALUES)-1)], "0"))
+            self.current_conveyor_parts.append(PART_COLORS[part_color]+PART_TYPES[part_type-10])
+            self.all_present_parts.append(f"{s_part_color} {s_part_type}")
+        self.conveyor_parts_counter.set(str(len(self.conveyor_parts)))
+    
+    def auto_generate_conveyor_parts(self):
+        list_of_bin_parts = []
+        for b in self.current_bin_parts.keys():
+            for part in self.current_bin_parts[b]:
+                list_of_bin_parts.append(part)
+        list_of_bin_parts = list(set(list_of_bin_parts))
+        self.generate_random_conveyor_part_for_auto(5, list_of_bin_parts)
 
     # =======================================================
     #                 Order Functions
@@ -2283,7 +2343,8 @@ class GUI_CLASS(ctk.CTk):
                         temp_assembly_part_dict["color"] = _part_color_str[part.part.color].lower()
                         for key in _assembly_part_pose_and_direction_dicts[_part_type_str[part.part.type].upper()].keys():
                             temp_assembly_part_dict[key] = copy(_assembly_part_pose_and_direction_dicts[_part_type_str[part.part.type].upper()][key])
-                        temp_order_dict["assembly_task"]["products"].append(temp_assembly_part_dict)
+                        temp_order_dict["assembly_task"]["products"].append(temp_assembly_part_dict)        if self.order_info["order_type"].get()=="kitting":
+
                 else:
                     temp_order_dict["combined_task"] = {}
                     temp_order_dict["combined_task"]["station"] = ASSEMBLY_STATIONS[order.combined_task.station-1]
@@ -2297,6 +2358,74 @@ class GUI_CLASS(ctk.CTk):
                         temp_order_dict["combined_task"]["products"].append(temp_combined_part_dict)
                 self.orders_dict["orders"].append(temp_order_dict)
     
+    def auto_generate_kitting_order(self, num_parts, priority, insufficient_part, flipped_part, conveyor_part, agv_number):
+        new_order = OrderMsg()
+        self.used_ids.append(self.generate_order_id())
+        self.kitting_order_counter.set(str(int(self.kitting_order_counter.get())+1))
+        self.kitting_ids.append(self.used_ids[-1])
+        new_order.id = self.used_ids[-1]
+        new_order.type = "kitting"
+        new_order.priority = True if priority == "1" else False
+        
+        new_kitting_task = KittingTaskMsg()
+        new_kitting_task.agv_number = agv_number
+        new_kitting_task.tray_id = int(self.kitting_tray_selections[agv_number-1].get())
+        new_kitting_task.destination = 3
+        kitting_parts = []
+        for i in num_parts:
+            new_kitting_part = KittingPartMsg()
+            p = ""
+            if i == 0 and flipped_part == "1":
+                p = self.current_bin_parts["bin6"][self.randint(0,9)]
+            elif i==1 and conveyor_part == "1":
+                p = self.current_conveyor_parts[randint(0,len(self.current_conveyor_parts))]
+            else:
+                p = self.current_bin_parts[f"bin{[1,2,5][randint(0,2)]}"][self.randint(0,9)]
+            part_info = p.split(" ")
+            new_kitting_part.part.color = _part_color_ints[part_info[0].upper()]
+            new_kitting_part.part.type = _part_type_ints[part_info[1].upper()]
+            new_kitting_part.quadrant = i+1
+            kitting_parts.append(new_kitting_part)
+            
+        new_kitting_task.parts = kitting_parts
+        new_order.condition.type = CONDITION_TYPE[0]
+        new_order.condition.time_condition.seconds = float(agv_number-1)
+        
+        self.current_orders.append(new_order)
+        
+        self.order_counter.set(str(len(self.used_ids)))
+        if 'order_submission' not in CONDITION_TYPE:
+            CONDITION_TYPE.append('order_submission')
+    
+    def auto_generate_assembly_order(self, num_parts, priority, insufficient_part, flipped_part, conveyor_part, agv_number):
+        new_order = OrderMsg()
+        self.used_ids.append(self.generate_order_id())
+        new_order.id = self.used_ids[-1]
+        
+        new_order.type = "assembly"
+        new_order.priority = True if priority == "1" else False
+        
+        new_assembly_task = AssemblyTaskMsg()
+        new_assembly_task.agv_numbers = [agv_number]
+        new_assembly_task.station = agv_number
+        
+        assembly_parts = []
+        for i in range(num_parts):
+            color = PART_COLORS[randint(0,len(PART_COLORS)-1)]
+            p_type = PART_TYPES[randint(0,len(PART_TYPES)-1)]
+            new_assembly_part = AssemblyPart(color, p_type,str(agv_number),str(i+1),"0")
+            assembly_parts.append(new_assembly_part)
+            self.available_quadrants[f"agv_{agv_number}"].remove(str(i+1))
+        new_assembly_task.parts = assembly_parts
+        
+        new_order.condition.type = CONDITION_TYPE[0]
+        new_order.condition.time_condition.seconds = float(agv_number-1)
+        
+        self.current_orders.append(new_order)
+        
+        self.order_counter.set(str(len(self.used_ids)))
+        if 'order_submission' not in CONDITION_TYPE:
+            CONDITION_TYPE.append('order_submission')
     # =======================================================
     #                  Challenges functions
     # =======================================================
@@ -3388,6 +3517,85 @@ class GUI_CLASS(ctk.CTk):
                                                                                             bg_color="#c1c1c1",
                                                                                             fg_color="#c1c1c1")))
 
+    # =======================================================
+    #                  Auto generation
+    # =======================================================
+    def update_auto_gen_orders(self, label, auto_order_widgets, auto_order_options, auto_window, _,__,___):
+        label.configure(text=f"Number of orders: {self.auto_gen_num_orders.get()}")
+        if self.auto_gen_num_orders.get() < len(auto_order_widgets):
+            self.remove_unneeded_orders(auto_order_widgets,auto_order_options)
+        else:
+            for i in range(len(auto_order_widgets), self.auto_gen_num_orders.get()):
+                auto_order_options.append(AutoGenOrder())
+                auto_order_widgets.append([])
+                auto_order_widgets[-1].append(ctk.CTkLabel(auto_window, text=f"Order {len(auto_order_widgets)}"))
+                auto_order_widgets[-1].append(ctk.CTkOptionMenu(auto_window, variable=auto_order_options[-1].type, values=ORDER_TYPES))
+                auto_order_widgets[-1].append(ctk.CTkOptionMenu(auto_window, variable=auto_order_options[-1].num_parts, values=[str(i) for i in range(1,5)]))
+                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="Faulty part" ,variable=auto_order_options[-1].faulty_part, onvalue="1", offvalue="0", height=1, width=20))
+                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="Flipped part" ,variable=auto_order_options[-1].flipped_part, onvalue="1", offvalue="0", height=1, width=20))
+                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="High priority" ,variable=auto_order_options[-1].high_priority, onvalue="1", offvalue="0", height=1, width=20))
+                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="Insufficient parts" ,variable=auto_order_options[-1].insufficient_parts, onvalue="1", offvalue="0", height=1, width=20))
+                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="Conveyor" ,variable=auto_order_options[-1].conveyor, onvalue="1", offvalue="0", height=1, width=20))
+                for j in range(len(auto_order_widgets[-1])):
+                    auto_order_widgets[-1][j].grid(pady=10,column=1+j,row=6+len(auto_order_widgets)-1+i)
+   
+    def remove_unneeded_orders(self, auto_order_widgets,auto_order_options):
+        for i in [j for j in range(self.auto_gen_num_orders.get(), len(auto_order_widgets))][::-1]:
+            print(i)
+            for widget in auto_order_widgets[i]:
+                widget.grid_forget()
+            del auto_order_widgets[i]
+            del auto_order_options[i]
+    
+    def run_auto_generation_window(self):
+        auto_window = ctk.CTkToplevel()
+        
+        auto_window.grid_rowconfigure(0, weight=1)
+        auto_window.grid_rowconfigure(100, weight=1)
+        auto_window.grid_columnconfigure(0, weight=1)
+        auto_window.grid_columnconfigure(25, weight=1)
+        
+        add_dp_challenge = tk.StringVar()
+        add_dp_challenge.set("0")
+        add_rm_challenge = tk.StringVar()
+        add_rm_challenge.set("0")
+        add_sb_challenge = tk.StringVar()
+        add_sb_challenge.set("0")
+        rotated_assembly_stations = tk.StringVar()
+        rotated_assembly_stations.set("0")
+        self.auto_gen_num_orders = tk.IntVar()
+        self.auto_gen_num_orders.set(1)
+        
+        dropped_part_cb = ctk.CTkCheckBox(auto_window, text="Dropped part",variable=add_dp_challenge, onvalue="1", offvalue="0", height=1, width=20)
+        dropped_part_cb.grid(pady=10,column=1,row=2)
+        robot_malfunction_cb = ctk.CTkCheckBox(auto_window, text="Robot malfunction",variable=add_rm_challenge, onvalue="1", offvalue="0", height=1, width=20)
+        robot_malfunction_cb.grid(pady=10,column=2,row=2)
+        sensor_blackout_cb = ctk.CTkCheckBox(auto_window, text="Sensor blackout" ,variable=add_sb_challenge, onvalue="1", offvalue="0", height=1, width=20)
+        sensor_blackout_cb.grid(pady=10,column=3,row=2)
+        rotated_assembly_cb = ctk.CTkCheckBox(auto_window, text="Rotated assembly stations" ,variable=rotated_assembly_stations, onvalue="1", offvalue="0", height=1, width=20)
+        rotated_assembly_cb.grid(pady=10,column=4,row=2)
+        
+        num_order_label = ctk.CTkLabel(auto_window, text=f"Number of orders: {self.auto_gen_num_orders.get()}")
+        num_order_label.grid(column=1,row=3,columnspan=5)
+        num_orders_slider = ctk.CTkSlider(auto_window, from_=1, to=3,variable=self.auto_gen_num_orders, orientation="horizontal")
+        num_orders_slider.grid(column=1,row=4,columnspan=5)
+        order_column_labels = []
+        order_column_labels.append(ctk.CTkLabel(auto_window, text=f"Order"))
+        order_column_labels.append(ctk.CTkLabel(auto_window, text=f"Task"))
+        order_column_labels.append(ctk.CTkLabel(auto_window, text=f"# of parts"))
+        order_column_labels.append(ctk.CTkLabel(auto_window, text=f"Faulty part"))
+        order_column_labels.append(ctk.CTkLabel(auto_window, text=f"Flipped part"))
+        order_column_labels.append(ctk.CTkLabel(auto_window, text=f"High priority"))
+        order_column_labels.append(ctk.CTkLabel(auto_window, text=f"Insufficient parts"))
+        order_column_labels.append(ctk.CTkLabel(auto_window, text=f"Conveyor"))
+        for i in range(len(order_column_labels)):
+            order_column_labels[i].grid(column = 1+i, row=5, pady=10)
+        auto_order_widgets = []
+        auto_order_options = []
+        self.update_auto_gen_orders(num_order_label, auto_order_widgets, auto_order_options, auto_window, 1,1,1)
+        self.auto_gen_num_orders.trace_add('write', partial(self.update_auto_gen_orders, num_order_label, auto_order_widgets, auto_order_options, auto_window))
+        
+        auto_window.mainloop()
 
     # =======================================================
     #               General Gui Functions

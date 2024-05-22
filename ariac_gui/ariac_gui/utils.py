@@ -3,6 +3,7 @@ import math
 
 from math import pi
 
+import customtkinter as ctk
 
 from geometry_msgs.msg import Quaternion,PoseStamped, Vector3
 from ariac_msgs.msg import (
@@ -73,6 +74,24 @@ class AssemblyPart():
         self.agv = agv
         self.quadrant = quadrant
         self.rotation = rotation
+
+class AutoGenOrder():
+    def __init__(self):
+        self.type = ctk.StringVar()
+        self.num_parts = ctk.StringVar()
+        self.faulty_part = ctk.StringVar()
+        self.flipped_part = ctk.StringVar()
+        self.high_priority = ctk.StringVar()
+        self.insufficient_parts = ctk.StringVar()
+        self.conveyor = ctk.StringVar()
+        
+        self.type.set("kitting")
+        self.num_parts.set("1")
+        self.faulty_part.set("0")
+        self.flipped_part.set("0")
+        self.high_priority.set("0")
+        self.insufficient_parts.set("0")
+        self.conveyor.set("0")
 
 class CompetitionClass():
     def __init__(self, time_limit, tray_ids, slots, assembly_insert_rotations, agv_dict, bin_dict, current_bin_parts, conveyor_active, spawn_rate, conveyor_order,
