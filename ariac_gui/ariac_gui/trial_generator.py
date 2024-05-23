@@ -3055,8 +3055,8 @@ class GUI_CLASS(ctk.CTk):
         dropped_part_challenge = DroppedPartChallengeMsg()
         part = self.parts_used_in_auto_orders[randint(0, len(self.parts_used_in_auto_orders)-1)]
         dropped_part_challenge.robot = "ceiling_robot" if part[2] == "assembly" else "kitting_robot"
-        dropped_part_challenge.part_to_drop.type = _part_type_ints[part[1]]
-        dropped_part_challenge.part_to_drop.color = _part_color_ints[part[0]]
+        dropped_part_challenge.part_to_drop.type = _part_type_ints[part[1].upper()]
+        dropped_part_challenge.part_to_drop.color = _part_color_ints[part[0].upper()]
         dropped_part_challenge.drop_after_num = 0
         dropped_part_challenge.drop_after_time = 5
         new_challenge.dropped_part_challenge = dropped_part_challenge
@@ -3683,6 +3683,7 @@ class GUI_CLASS(ctk.CTk):
     def run_auto_generation_window(self):
         auto_window = ctk.CTkToplevel()
         
+        auto_window.geometry("1200x500")
         auto_window.grid_rowconfigure(0, weight=1)
         auto_window.grid_rowconfigure(100, weight=1)
         auto_window.grid_columnconfigure(0, weight=1)
@@ -3722,7 +3723,7 @@ class GUI_CLASS(ctk.CTk):
         order_column_labels.append(ctk.CTkLabel(auto_window, text=f"Insufficient parts"))
         order_column_labels.append(ctk.CTkLabel(auto_window, text=f"Conveyor"))
         for i in range(len(order_column_labels)):
-            order_column_labels[i].grid(column = 1+i, row=5, pady=10)
+            order_column_labels[i].grid(column = 1+i, row=5, pady=10, padx=10)
         auto_order_widgets = []
         self.auto_order_options = []
         self.parts_used_in_auto_orders = []
