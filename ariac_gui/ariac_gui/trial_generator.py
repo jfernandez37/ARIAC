@@ -2343,7 +2343,7 @@ class GUI_CLASS(ctk.CTk):
                         temp_assembly_part_dict["color"] = _part_color_str[part.part.color].lower()
                         for key in _assembly_part_pose_and_direction_dicts[_part_type_str[part.part.type].upper()].keys():
                             temp_assembly_part_dict[key] = copy(_assembly_part_pose_and_direction_dicts[_part_type_str[part.part.type].upper()][key])
-                        temp_order_dict["assembly_task"]["products"].append(temp_assembly_part_dict)        if self.order_info["order_type"].get()=="kitting":
+                        temp_order_dict["assembly_task"]["products"].append(temp_assembly_part_dict)
 
                 else:
                     temp_order_dict["combined_task"] = {}
