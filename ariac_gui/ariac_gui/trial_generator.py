@@ -671,12 +671,13 @@ class GUI_CLASS(ctk.CTk):
         self.kitting_tray_canvas.create_window(((tray_coords["kts_2"][0]+tray_coords["kts_2"][2])//2,555),window=ctk.CTkLabel(self.kitting_tray_frame,text="kts_2"))
         self.kitting_tray_canvas.grid(row = 3,column = MIDDLE_COLUMN, sticky = "we")
     
-    def random_kitting_trays(self, needed_trays):
+    def random_kitting_trays(self):
         available_slots = [i for i in range(6)]
         for i in range(6):
-            ind = randint(0,len(available_slots))
-            self.kitting_tray_selections[available_slots[ind]].set("0" if i < 3 else str(randint(1,9)))
-            del available_slots[ind]
+            available_slots_ind = randint(0,len(available_slots)-1)
+            ind = available_slots[available_slots_ind]
+            self.kitting_tray_selections[ind].set("0" if i < 3 else str(randint(1,9)))
+            del available_slots[available_slots_ind]
         
     def kitting_trays_to_dict(self):
         self.kitting_trays_dict = {}
@@ -3557,28 +3558,27 @@ class GUI_CLASS(ctk.CTk):
     # =======================================================
     #                  Auto generation
     # =======================================================
-    def update_auto_gen_orders(self, label, auto_order_widgets, auto_order_options, auto_window, _,__,___):
+    def update_auto_gen_orders(self, label, auto_order_widgets, auto_window, _,__,___):
         label.configure(text=f"Number of orders: {self.auto_gen_num_orders.get()}")
         if self.auto_gen_num_orders.get() < len(auto_order_widgets):
-            self.remove_unneeded_orders(auto_order_widgets,auto_order_options)
+            self.remove_unneeded_orders(auto_order_widgets,self.auto_order_options)
         else:
             for i in range(len(auto_order_widgets), self.auto_gen_num_orders.get()):
-                auto_order_options.append(AutoGenOrder())
+                self.auto_order_options.append(AutoGenOrder())
                 auto_order_widgets.append([])
                 auto_order_widgets[-1].append(ctk.CTkLabel(auto_window, text=f"Order {len(auto_order_widgets)}"))
-                auto_order_widgets[-1].append(ctk.CTkOptionMenu(auto_window, variable=auto_order_options[-1].type, values=ORDER_TYPES))
-                auto_order_widgets[-1].append(ctk.CTkOptionMenu(auto_window, variable=auto_order_options[-1].num_parts, values=[str(i) for i in range(1,5)]))
-                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="Faulty part" ,variable=auto_order_options[-1].faulty_part, onvalue="1", offvalue="0", height=1, width=20))
-                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="Flipped part" ,variable=auto_order_options[-1].flipped_part, onvalue="1", offvalue="0", height=1, width=20))
-                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="High priority" ,variable=auto_order_options[-1].high_priority, onvalue="1", offvalue="0", height=1, width=20))
-                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="Insufficient parts" ,variable=auto_order_options[-1].insufficient_parts, onvalue="1", offvalue="0", height=1, width=20))
-                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="Conveyor" ,variable=auto_order_options[-1].conveyor, onvalue="1", offvalue="0", height=1, width=20))
+                auto_order_widgets[-1].append(ctk.CTkOptionMenu(auto_window, variable=self.auto_order_options[-1].type, values=ORDER_TYPES))
+                auto_order_widgets[-1].append(ctk.CTkOptionMenu(auto_window, variable=self.auto_order_options[-1].num_parts, values=[str(i) for i in range(1,5)]))
+                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="Faulty part" ,variable=self.auto_order_options[-1].faulty_part, onvalue="1", offvalue="0", height=1, width=20))
+                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="Flipped part" ,variable=self.auto_order_options[-1].flipped_part, onvalue="1", offvalue="0", height=1, width=20))
+                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="High priority" ,variable=self.auto_order_options[-1].high_priority, onvalue="1", offvalue="0", height=1, width=20))
+                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="Insufficient parts" ,variable=self.auto_order_options[-1].insufficient_parts, onvalue="1", offvalue="0", height=1, width=20))
+                auto_order_widgets[-1].append(ctk.CTkCheckBox(auto_window, text="Conveyor" ,variable=self.auto_order_options[-1].conveyor, onvalue="1", offvalue="0", height=1, width=20))
                 for j in range(len(auto_order_widgets[-1])):
                     auto_order_widgets[-1][j].grid(pady=10,column=1+j,row=6+len(auto_order_widgets)-1+i)
    
     def remove_unneeded_orders(self, auto_order_widgets,auto_order_options):
         for i in [j for j in range(self.auto_gen_num_orders.get(), len(auto_order_widgets))][::-1]:
-            print(i)
             for widget in auto_order_widgets[i]:
                 widget.grid_forget()
             del auto_order_widgets[i]
@@ -3592,30 +3592,30 @@ class GUI_CLASS(ctk.CTk):
         auto_window.grid_columnconfigure(0, weight=1)
         auto_window.grid_columnconfigure(25, weight=1)
         
-        add_dp_challenge = tk.StringVar()
-        add_dp_challenge.set("0")
-        add_rm_challenge = tk.StringVar()
-        add_rm_challenge.set("0")
-        add_sb_challenge = tk.StringVar()
-        add_sb_challenge.set("0")
-        rotated_assembly_stations = tk.StringVar()
-        rotated_assembly_stations.set("0")
+        self.add_dp_challenge = tk.StringVar()
+        self.add_dp_challenge.set("0")
+        self.add_rm_challenge = tk.StringVar()
+        self.add_rm_challenge.set("0")
+        self.add_sb_challenge = tk.StringVar()
+        self.add_sb_challenge.set("0")
+        self.rotated_assembly_stations = tk.StringVar()
+        self.rotated_assembly_stations.set("0")
         self.auto_gen_num_orders = tk.IntVar()
         self.auto_gen_num_orders.set(1)
         
-        dropped_part_cb = ctk.CTkCheckBox(auto_window, text="Dropped part",variable=add_dp_challenge, onvalue="1", offvalue="0", height=1, width=20)
-        dropped_part_cb.grid(pady=10,column=1,row=2)
-        robot_malfunction_cb = ctk.CTkCheckBox(auto_window, text="Robot malfunction",variable=add_rm_challenge, onvalue="1", offvalue="0", height=1, width=20)
-        robot_malfunction_cb.grid(pady=10,column=2,row=2)
-        sensor_blackout_cb = ctk.CTkCheckBox(auto_window, text="Sensor blackout" ,variable=add_sb_challenge, onvalue="1", offvalue="0", height=1, width=20)
-        sensor_blackout_cb.grid(pady=10,column=3,row=2)
-        rotated_assembly_cb = ctk.CTkCheckBox(auto_window, text="Rotated assembly stations" ,variable=rotated_assembly_stations, onvalue="1", offvalue="0", height=1, width=20)
-        rotated_assembly_cb.grid(pady=10,column=4,row=2)
+        dropped_part_cb = ctk.CTkCheckBox(auto_window, text="Dropped part",variable=self.add_dp_challenge, onvalue="1", offvalue="0", height=1, width=20)
+        dropped_part_cb.grid(pady=10,column=3,row=2)
+        robot_malfunction_cb = ctk.CTkCheckBox(auto_window, text="Robot malfunction",variable=self.add_rm_challenge, onvalue="1", offvalue="0", height=1, width=20)
+        robot_malfunction_cb.grid(pady=10,column=4,row=2)
+        sensor_blackout_cb = ctk.CTkCheckBox(auto_window, text="Sensor blackout" ,variable=self.add_sb_challenge, onvalue="1", offvalue="0", height=1, width=20)
+        sensor_blackout_cb.grid(pady=10,column=5,row=2)
+        rotated_assembly_cb = ctk.CTkCheckBox(auto_window, text="Rotated assembly stations" ,variable=self.rotated_assembly_stations, onvalue="1", offvalue="0", height=1, width=20)
+        rotated_assembly_cb.grid(pady=10,column=6,row=2)
         
         num_order_label = ctk.CTkLabel(auto_window, text=f"Number of orders: {self.auto_gen_num_orders.get()}")
-        num_order_label.grid(column=1,row=3,columnspan=5)
+        num_order_label.grid(column=3,row=3,columnspan=4)
         num_orders_slider = ctk.CTkSlider(auto_window, from_=1, to=3,variable=self.auto_gen_num_orders, orientation="horizontal")
-        num_orders_slider.grid(column=1,row=4,columnspan=5)
+        num_orders_slider.grid(column=3,row=4,columnspan=4)
         order_column_labels = []
         order_column_labels.append(ctk.CTkLabel(auto_window, text=f"Order"))
         order_column_labels.append(ctk.CTkLabel(auto_window, text=f"Task"))
@@ -3628,11 +3628,19 @@ class GUI_CLASS(ctk.CTk):
         for i in range(len(order_column_labels)):
             order_column_labels[i].grid(column = 1+i, row=5, pady=10)
         auto_order_widgets = []
-        auto_order_options = []
-        self.update_auto_gen_orders(num_order_label, auto_order_widgets, auto_order_options, auto_window, 1,1,1)
-        self.auto_gen_num_orders.trace_add('write', partial(self.update_auto_gen_orders, num_order_label, auto_order_widgets, auto_order_options, auto_window))
+        self.auto_order_options = []
+        self.update_auto_gen_orders(num_order_label, auto_order_widgets, auto_window, 1,1,1)
+        self.auto_gen_num_orders.trace_add('write', partial(self.update_auto_gen_orders, num_order_label, auto_order_widgets, auto_window))
+        
+        save_selection_button = ctk.CTkButton(auto_window, text="Save selection", command=partial(self.generate_selections, auto_window))
+        save_selection_button.grid(column = 4, columnspan = 2, row = 20)
         
         auto_window.mainloop()
+    
+    def generate_selections(self, window):
+        self.random_kitting_trays()
+        window.destroy()
+        self.open_main_window()
 
     # =======================================================
     #               General Gui Functions
