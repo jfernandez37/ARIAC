@@ -2296,8 +2296,8 @@ namespace ariac_common
             // Calculate the angle between the two vectors
             double angle = KDL::acos(KDL::dot(KDL::Vector(0, 0, 1), part_z) / (part_z.Norm()));
 
-            // Return that the part is flipped if angle is greater than ~10deg
-            if (angle > -0.2 && angle < 0.2)
+            // Return that the part is flipped if angle is greater than ~13deg
+            if (angle > -0.23 && angle < 0.23)
             {
                 return false;
             }
