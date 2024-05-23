@@ -969,19 +969,19 @@ class GUI_CLASS(ctk.CTk):
         self.bin_parts[bin][index].rotation = rotation
         self.bin_parts[bin][index].flipped = "0"
     
-    def multiple_random_parts(self, bin, indeces : list[int], flipped = False):
+    def multiple_random_parts(self, bin, slots : list[int], flipped = False):
         part_color = random.randint(0,4)
         part_type = random.randint(10,13)
         rotation = SLIDER_VALUES[random.randint(0,len(SLIDER_VALUES)-1)]
-        for i in indeces:
-            self.current_bin_parts[bin][i]=PART_COLORS[part_color]+PART_TYPES[part_type-10]
+        for i in slots:
+            self.current_bin_parts[bin][i-1]=PART_COLORS[part_color]+PART_TYPES[part_type-10]
             self.all_present_parts.append(PART_COLORS[part_color]+" "+PART_TYPES[part_type-10])
             temp_part = PartMsg()
             temp_part.color = part_color
             temp_part.type = part_type
-            self.bin_parts[bin][i].part = temp_part
-            self.bin_parts[bin][i].rotation = rotation
-            self.bin_parts[bin][i].flipped = "1" if flipped else"0"
+            self.bin_parts[bin][i-1].part = temp_part
+            self.bin_parts[bin][i-1].rotation = rotation
+            self.bin_parts[bin][i-1].flipped = "1" if flipped else"0"
 
     def add_bin_part(self,bin, index):
         bin_vals = {}
@@ -1155,8 +1155,8 @@ class GUI_CLASS(ctk.CTk):
 
     def auto_fill_bins(self):
         for b in [1,2, 5, 6]:
-            self.multiple_random_parts(b, [1,3,5,7,9], False if b != 6 else True)
-            self.multiple_random_parts(b, [2,4,6,8], False if b != 6 else True)
+            self.multiple_random_parts(f"bin{b}", [1,3,5,7,9], False if b != 6 else True)
+            self.multiple_random_parts(f"bin{b}", [2,4,6,8], False if b != 6 else True)
         self.bin_parts_counter.set(str(sum([sum([1 for part in self.current_bin_parts[key] if part!=""]) for key in self.current_bin_parts.keys()])))
                     
     # =======================================================
@@ -1171,7 +1171,7 @@ class GUI_CLASS(ctk.CTk):
         trial_has_parts_cb.grid(pady=5, column = MIDDLE_COLUMN)
         self.conveyor_setup_vals = {"active":ctk.StringVar(),"spawn_rate":ctk.IntVar(),"order":ctk.StringVar()}
         self.conveyor_setup_vals["active"].set('0')
-        self.conveyor_setup_vals['spawn_rate'].set(1)
+        self.conveyor_setup_vals['spawn_rate'].set(3)
         self.conveyor_setup_vals["order"].set(CONVEYOR_ORDERS[0])
         for key in self.conveyor_setup_vals.keys():
             self.conveyor_setup_vals[key].trace_add('write',self.update_current_file_label)
@@ -1786,7 +1786,7 @@ class GUI_CLASS(ctk.CTk):
                     part_label = ctk.CTkLabel(self.orders_frame, text=f"{_part_color_str[part.part.color]} {_part_type_str[part.part.type]}\n Quadrant: {part.quadrant}")
                     part_label.grid(row = current_row, column = LEFT_COLUMN)
                     self.current_order_part_widgets.append(part_label)
-                    edit_part_button = ctk.CTkButton(self.orders_frame, text="edit part", command=partial(self.add_kitting_part,part, index))
+                    edit_part_button = ctk.CTkButton(self.orders_frame, text="Edit part", command=partial(self.add_kitting_part,part, index))
                     edit_part_button.grid(row = current_row, column = MIDDLE_COLUMN, pady = 3)
                     self.current_order_part_widgets.append(edit_part_button)
                     delete_part_button = ctk.CTkButton(self.orders_frame, text="Delete part", command=partial(self.remove_order_part,"kitting_task", index))
@@ -2319,7 +2319,7 @@ class GUI_CLASS(ctk.CTk):
                 temp_order_dict["id"] = order.id
                 temp_order_dict["type"] = ORDER_TYPES[order.type]
                 temp_order_dict["announcement"] = self.announcement_to_dict(order.condition)
-                temp_order_dict["priority"] = order.priority == "1"
+                temp_order_dict["priority"] = order.priority == True
                 if order.type == 0:
                     temp_order_dict["kitting_task"] = {}
                     temp_order_dict["kitting_task"]["agv_number"] = order.kitting_task.agv_number
@@ -2359,13 +2359,22 @@ class GUI_CLASS(ctk.CTk):
                         temp_order_dict["combined_task"]["products"].append(temp_combined_part_dict)
                 self.orders_dict["orders"].append(temp_order_dict)
     
-    def auto_generate_kitting_order(self, num_parts, priority, insufficient_part, flipped_part, conveyor_part, agv_number):
+    def find_absent_part(self):
+        for color in PART_COLORS:
+            for p_type in PART_TYPES:
+                part = f"{color} {p_type}"
+                if part not in self.all_present_parts:
+                    return "".join([s.upper() for s in part.split(" ")])
+        return "".join([s.upper() for s in self.all_present_parts[0].split(" ")])
+    
+    def auto_generate_kitting_order(self, num_parts, priority, insufficient_part, flipped_part, conveyor_part, faulty_part, agv_number):
         new_order = OrderMsg()
+        self.find_absent_part()
         self.used_ids.append(self.generate_order_id())
         self.kitting_order_counter.set(str(int(self.kitting_order_counter.get())+1))
         self.kitting_ids.append(self.used_ids[-1])
         new_order.id = self.used_ids[-1]
-        new_order.type = "kitting"
+        new_order.type = 0
         new_order.priority = True if priority == "1" else False
         
         new_kitting_task = KittingTaskMsg()
@@ -2373,37 +2382,51 @@ class GUI_CLASS(ctk.CTk):
         new_kitting_task.tray_id = int(self.kitting_tray_selections[agv_number-1].get())
         new_kitting_task.destination = 3
         kitting_parts = []
-        for i in num_parts:
+        for i in range(num_parts):
             new_kitting_part = KittingPartMsg()
             p = ""
-            if i == 0 and flipped_part == "1":
-                p = self.current_bin_parts["bin6"][self.randint(0,9)]
-            elif i==1 and conveyor_part == "1":
+            if i == 0 and insufficient_part == "1":
+                p = self.find_absent_part()
+            elif i == 1 and flipped_part == "1":
+                p = self.current_bin_parts["bin6"][randint(0,8)]
+            elif i==2 and conveyor_part == "1":
                 p = self.current_conveyor_parts[randint(0,len(self.current_conveyor_parts))]
             else:
-                p = self.current_bin_parts[f"bin{[1,2,5][randint(0,2)]}"][self.randint(0,9)]
-            part_info = p.split(" ")
-            new_kitting_part.part.color = _part_color_ints[part_info[0].upper()]
-            new_kitting_part.part.type = _part_type_ints[part_info[1].upper()]
+                p = self.current_bin_parts[f"bin{[1,2,5][randint(0,2)]}"][randint(0,8)]
+            part_color = copy(p).upper()
+            part_type = copy(p).upper()
+            for t in PART_TYPES:
+                part_color = part_color.replace(t.upper(),"")
+            for t in PART_COLORS:
+                part_type = part_type.replace(t.upper(),"")
+            
+            self.parts_used_in_auto_orders.append((part_color, part_type, "kitting"))
+            new_kitting_part.part.color = _part_color_ints[part_color]
+            new_kitting_part.part.type = _part_type_ints[part_type]
             new_kitting_part.quadrant = i+1
             kitting_parts.append(new_kitting_part)
             
         new_kitting_task.parts = kitting_parts
-        new_order.condition.type = CONDITION_TYPE[0]
+        new_order.kitting_task = new_kitting_task
+        new_order.condition.type = 0
         new_order.condition.time_condition.seconds = float(agv_number-1)
         
         self.current_orders.append(new_order)
+        
+        if faulty_part=="1":
+            self.auto_generate_faulty_part_challenge()
         
         self.order_counter.set(str(len(self.used_ids)))
         if 'order_submission' not in CONDITION_TYPE:
             CONDITION_TYPE.append('order_submission')
     
-    def auto_generate_assembly_order(self, num_parts, priority, insufficient_part, flipped_part, conveyor_part, agv_number):
+    def auto_generate_assembly_order(self, num_parts, priority, _, __, ___, agv_number):
+        self.assembly_orders_have_been_changed = True
         new_order = OrderMsg()
         self.used_ids.append(self.generate_order_id())
         new_order.id = self.used_ids[-1]
         
-        new_order.type = "assembly"
+        new_order.type = 1
         new_order.priority = True if priority == "1" else False
         
         new_assembly_task = AssemblyTaskMsg()
@@ -2411,15 +2434,19 @@ class GUI_CLASS(ctk.CTk):
         new_assembly_task.station = agv_number
         
         assembly_parts = []
+        used_part_types = []
         for i in range(num_parts):
             color = PART_COLORS[randint(0,len(PART_COLORS)-1)]
-            p_type = PART_TYPES[randint(0,len(PART_TYPES)-1)]
-            new_assembly_part = AssemblyPart(color, p_type,str(agv_number),str(i+1),"0")
+            available_part_types = [t for t in PART_TYPES if t not in used_part_types]
+            p_type = available_part_types[randint(0,len(available_part_types)-1)]
+            used_part_types.append(p_type)   
+            self.parts_used_in_auto_orders.append((color, p_type, "assembly"))
+            new_assembly_part = AssemblyPart(color, p_type,str(agv_number),str(i+1), SLIDER_VALUES[randint(0, len(SLIDER_VALUES)-1)])
             assembly_parts.append(new_assembly_part)
             self.available_quadrants[f"agv_{agv_number}"].remove(str(i+1))
         new_assembly_task.parts = assembly_parts
-        
-        new_order.condition.type = CONDITION_TYPE[0]
+        new_order.assembly_task = new_assembly_task
+        new_order.condition.type = 0
         new_order.condition.time_condition.seconds = float(agv_number-1)
         
         self.current_orders.append(new_order)
@@ -2433,30 +2460,39 @@ class GUI_CLASS(ctk.CTk):
         self.used_ids.append(self.generate_order_id())
         new_order.id = self.used_ids[-1]
         
-        new_order.type = "assembly"
+        new_order.type = 2
         new_order.priority = True if priority == "1" else False
         
         new_combined_task = CombinedTaskMsg()
         new_combined_task.station = agv_number
         
         combined_parts = []
-        for i in num_parts:
+        for i in range(num_parts):
             new_combined_part = PartMsg()
             p = ""
-            if i == 0 and flipped_part == "1":
-                p = self.current_bin_parts["bin6"][self.randint(0,9)]
-            elif i==1 and conveyor_part == "1":
+            if i == 0 and insufficient_part == "1":
+                p = self.find_absent_part()
+            elif i == 1 and flipped_part == "1":
+                p = self.current_bin_parts["bin6"][randint(0,8)]
+            elif i==2 and conveyor_part == "1":
                 p = self.current_conveyor_parts[randint(0,len(self.current_conveyor_parts))]
             else:
-                p = self.current_bin_parts[f"bin{[1,2,5][randint(0,2)]}"][self.randint(0,9)]
-            part_info = p.split(" ")
-            new_combined_part.color = _part_color_ints[part_info[0].upper()]
-            new_combined_part.type = _part_type_ints[part_info[1].upper()]
+                p = self.current_bin_parts[f"bin{[1,2,5][randint(0,2)]}"][randint(0,8)]
+            part_color = copy(p).upper()
+            part_type = copy(p).upper()
+            for t in PART_TYPES:
+                part_color = part_color.replace(t.upper(),"")
+            for t in PART_COLORS:
+                part_type = part_type.replace(t.upper(),"")
+            self.parts_used_in_auto_orders.append((part_color, part_type,"combined"))
+            new_combined_part.color = _part_color_ints[part_color]
+            new_combined_part.type = _part_type_ints[part_type]
             combined_parts.append(new_combined_part)
             
         new_combined_task.parts = combined_parts
+        new_order.combined_task = new_combined_task
         
-        new_order.condition.type = CONDITION_TYPE[0]
+        new_order.condition.type = 0
         new_order.condition.time_condition.seconds = float(agv_number-1)
         
         self.current_orders.append(new_order)
@@ -3013,6 +3049,66 @@ class GUI_CLASS(ctk.CTk):
     #     else:
     #         self.current_challenges[index] = new_challenge
 
+    def auto_generate_dropped_part_challenge(self):
+        new_challenge = ChallengeMsg()
+        new_challenge.type = 1
+        dropped_part_challenge = DroppedPartChallengeMsg()
+        part = self.parts_used_in_auto_orders[randint(0, len(self.parts_used_in_auto_orders)-1)]
+        dropped_part_challenge.robot = "ceiling_robot" if part[2] == "assembly" else "kitting_robot"
+        dropped_part_challenge.part_to_drop.type = _part_type_ints[part[1]]
+        dropped_part_challenge.part_to_drop.color = _part_color_ints[part[0]]
+        dropped_part_challenge.drop_after_num = 0
+        dropped_part_challenge.drop_after_time = 5
+        new_challenge.dropped_part_challenge = dropped_part_challenge
+        self.current_challenges.append(new_challenge)
+        self.challenges_counter.set(len(self.current_challenges))
+    
+    def auto_generate_robot_malfunction_challenge(self):
+        new_challenge = ChallengeMsg()
+        new_challenge.type = 3
+        robot_malfunction_challenge = RobotMalfunctionChallengeMsg()
+        robot_malfunction_challenge.duration = randint(20, 240) / 4
+        robot_malfunction_challenge.condition.type = 0
+        robot_malfunction_challenge.condition.time_condition.seconds = randint(20, 100) / 4
+        part = self.parts_used_in_auto_orders[randint(0, len(self.parts_used_in_auto_orders)-1)]
+        robot_malfunction_challenge.robots_to_disable.floor_robot = True if part[2] in ["kitting", "combined"] else False
+        robot_malfunction_challenge.robots_to_disable.ceiling_robot = True if part[2] in ["assembly", "combined"] else False
+        new_challenge.robot_malfunction_challenge = robot_malfunction_challenge
+
+        self.current_challenges.append(new_challenge)
+        self.challenges_counter.set(len(self.current_challenges))
+    
+    def auto_generate_sensor_blackout_challenge(self):
+        new_challenge = ChallengeMsg()
+        new_challenge.type = 2
+        sensor_blackout_challenge = SensorBlackoutChallengeMsg()
+        sensor_blackout_challenge.duration = randint(20, 240) / 4
+        sensor_blackout_challenge.condition.type = 0
+        sensor_blackout_challenge.condition.time_condition.seconds = randint(20, 100) / 4
+        sensor_blackout_challenge.sensors_to_disable.break_beam = 0.75 > random.random()
+        sensor_blackout_challenge.sensors_to_disable.camera = 0.75 > random.random()
+        sensor_blackout_challenge.sensors_to_disable.laser_profiler = 0.75 > random.random()
+        sensor_blackout_challenge.sensors_to_disable.lidar = 0.75 > random.random()
+        sensor_blackout_challenge.sensors_to_disable.proximity = 0.75 > random.random()
+        sensor_blackout_challenge.sensors_to_disable.logical_camera = 0.75 > random.random()
+        new_challenge.sensor_blackout_challenge = sensor_blackout_challenge
+        self.current_challenges.append(new_challenge)
+        self.challenges_counter.set(len(self.current_challenges))
+    
+    def auto_generate_faulty_part_challenge(self):
+        new_challenge = ChallengeMsg()
+        new_challenge.type = 0
+        faulty_part_challenge = FaultyPartChallengeMsg()
+        faulty_part_challenge.order_id = self.current_orders[-1].id
+        quadrants_used = [p.quadrant for p in self.current_orders[-1].kitting_task.parts]
+        faulty_part_challenge.quadrant1 = False if 1 not in quadrants_used else True
+        faulty_part_challenge.quadrant2 = False if 2 not in quadrants_used else (0.5 > random.random())
+        faulty_part_challenge.quadrant3 = False if 3 not in quadrants_used else (0.5 > random.random())
+        faulty_part_challenge.quadrant4 = False if 4 not in quadrants_used else (0.5 > random.random())
+        new_challenge.faulty_part_challenge = faulty_part_challenge
+        self.current_challenges.append(new_challenge)
+        self.challenges_counter.set(len(self.current_challenges))
+    
     def save_challenge(self, type_of_challenge:str, index):
         if type_of_challenge == "dropped_part":
             self.save_dropped_part_challenge(index)
@@ -3629,6 +3725,7 @@ class GUI_CLASS(ctk.CTk):
             order_column_labels[i].grid(column = 1+i, row=5, pady=10)
         auto_order_widgets = []
         self.auto_order_options = []
+        self.parts_used_in_auto_orders = []
         self.update_auto_gen_orders(num_order_label, auto_order_widgets, auto_window, 1,1,1)
         self.auto_gen_num_orders.trace_add('write', partial(self.update_auto_gen_orders, num_order_label, auto_order_widgets, auto_window))
         
@@ -3638,9 +3735,58 @@ class GUI_CLASS(ctk.CTk):
         auto_window.mainloop()
     
     def generate_selections(self, window):
-        self.random_kitting_trays()
-        window.destroy()
         self.open_main_window()
+        self.random_kitting_trays()
+        if self.rotated_assembly_stations.get() == "1":
+            self.random_rotations()
+            self.activate_inserts_menu()
+        self.auto_fill_bins()
+        for order in self.auto_order_options:
+            order: AutoGenOrder
+            if order.conveyor.get() == "1":
+                self.auto_generate_conveyor_parts()
+                self.has_parts.set("1")
+                break
+        
+        agv_number = 1
+        for order in self.auto_order_options:
+            order: AutoGenOrder
+            if order.type.get() == "kitting":
+                self.auto_generate_kitting_order(int(order.num_parts.get()),
+                                                 order.high_priority.get(),
+                                                 order.insufficient_parts.get(),
+                                                 order.flipped_part.get(),
+                                                 order.conveyor.get(),
+                                                 order.faulty_part.get(),
+                                                 agv_number)
+            elif order.type.get() == "assembly":
+                self.auto_generate_assembly_order(int(order.num_parts.get()),
+                                                 order.high_priority.get(),
+                                                 order.insufficient_parts.get(),
+                                                 order.flipped_part.get(),
+                                                 order.conveyor.get(),
+                                                 agv_number)
+            else:
+                self.auto_generate_combined_order(int(order.num_parts.get()),
+                                                 order.high_priority.get(),
+                                                 order.insufficient_parts.get(),
+                                                 order.flipped_part.get(),
+                                                 order.conveyor.get(),
+                                                 agv_number)
+        
+        if self.add_dp_challenge.get() == "1":
+            self.auto_generate_dropped_part_challenge()
+        
+        if self.add_rm_challenge.get() == "1":
+            self.auto_generate_robot_malfunction_challenge()
+        
+        if self.add_sb_challenge.get() == "1":
+            self.auto_generate_sensor_blackout_challenge()
+        
+        self.show_main_order_menu()
+                
+        window.destroy()
+        
 
     # =======================================================
     #               General Gui Functions
