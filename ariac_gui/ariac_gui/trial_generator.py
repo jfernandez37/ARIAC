@@ -1453,7 +1453,7 @@ class GUI_CLASS(ctk.CTk):
             if f"{s_part_color} {s_part_type}" in already_in_bins + self.current_conveyor_parts:
                 continue
             parts_added+=1
-            self.conveyor_parts.append(ConveyorPart(s_part_color, s_part_type,1,(random.uniform(-1.0,1.0)if s_part_type!="pump"else random.uniform(-0.9,0.9)), SLIDER_VALUES[random.randint(0,len(SLIDER_VALUES)-1)], "0"))
+            self.conveyor_parts.append(ConveyorPart(s_part_color, s_part_type,1,(random.uniform(-1.0,1.0)if s_part_type!="pump"else random.uniform(-0.9,0.9)), SLIDER_VALUES[random.randint(0,len(SLIDER_VALUES)-1)], "1" if parts_added == num_parts-1 else "0"))
             self.current_conveyor_parts.append(PART_COLORS[part_color]+PART_TYPES[part_type-10])
             self.all_present_parts.append(f"{s_part_color} {s_part_type}")
         self.conveyor_parts_counter.set(str(len(self.conveyor_parts)))
@@ -2387,10 +2387,12 @@ class GUI_CLASS(ctk.CTk):
             p = ""
             if i == 0 and insufficient_part == "1":
                 p = self.find_absent_part()
+            elif i==1 and flipped_part == "1" and conveyor_part == "1":
+                p = self.current_conveyor_parts[-1]
             elif i == 1 and flipped_part == "1":
                 p = self.current_bin_parts["bin6"][randint(0,8)]
-            elif i==2 and conveyor_part == "1":
-                p = self.current_conveyor_parts[randint(0,len(self.current_conveyor_parts))]
+            elif i==1 and conveyor_part == "1":
+                p = self.current_conveyor_parts[randint(0,len(self.current_conveyor_parts)-2)]
             else:
                 p = self.current_bin_parts[f"bin{[1,2,5][randint(0,2)]}"][randint(0,8)]
             part_color = copy(p).upper()
@@ -2472,9 +2474,11 @@ class GUI_CLASS(ctk.CTk):
             p = ""
             if i == 0 and insufficient_part == "1":
                 p = self.find_absent_part()
+            elif i==1 and flipped_part == "1" and conveyor_part == "1":
+                p = self.current_conveyor_parts[-1]
             elif i == 1 and flipped_part == "1":
                 p = self.current_bin_parts["bin6"][randint(0,8)]
-            elif i==2 and conveyor_part == "1":
+            elif i==1 and conveyor_part == "1":
                 p = self.current_conveyor_parts[randint(0,len(self.current_conveyor_parts))]
             else:
                 p = self.current_bin_parts[f"bin{[1,2,5][randint(0,2)]}"][randint(0,8)]
@@ -2746,6 +2750,7 @@ class GUI_CLASS(ctk.CTk):
         self.dropped_part_info['delay'].trace_add('write', partial(self.update_delay_label, delay_label))
 
         if dropped_part_challenge!=None:
+            print(dropped_part_challenge.drop_after_time)
             self.dropped_part_info["robot"].set(dropped_part_challenge.robot)
             self.dropped_part_info["color"].set(_part_color_str[dropped_part_challenge.part_to_drop.color])
             self.dropped_part_info["type"].set(_part_type_str[dropped_part_challenge.part_to_drop.type])
@@ -2802,13 +2807,15 @@ class GUI_CLASS(ctk.CTk):
         self.grid_and_append_challenge_widget(ceiling_robot_cb)
         self.show_challenges_condition_menu()
 
+        self.robot_malfunction_info["duration"].trace_add('write',partial(self.update_rm_duration_label, duration_label))
+        
         if robot_malfunction_challenge != None:
             self.robot_malfunction_info["duration"].set(float(robot_malfunction_challenge.duration))
             self.robot_malfunction_info["floor_robot"].set("1" if robot_malfunction_challenge.robots_to_disable.floor_robot else "0")
             self.robot_malfunction_info["ceiling_robot"].set("1" if robot_malfunction_challenge.robots_to_disable.ceiling_robot else "0")
             self.set_challenge_condition_info_to_existing(robot_malfunction_challenge.condition)
 
-        self.robot_malfunction_info["duration"].trace_add('write',partial(self.update_rm_duration_label, duration_label))
+        
 
         self.save_challenge_button.configure(text="Save robot malfunction challenge", command=partial(self.save_challenge, "robot_malfunction", index))
         self.enable_disable_robot_malfunction_save(1,1,1)
@@ -2872,7 +2879,9 @@ class GUI_CLASS(ctk.CTk):
             self.current_challenges_widgets.append(sensor_cb)
         
         self.show_challenges_condition_menu()
-
+        
+        self.sensor_blackout_info["duration"].trace_add('write',partial(self.update_sb_duration_label, duration_label))
+        
         if sensor_blackout_challenge != None:
             self.sensor_blackout_info["duration"].set(float(sensor_blackout_challenge.duration))
             self.sensor_blackout_info["sensors_to_disable"]["break_beam"].set("1" if sensor_blackout_challenge.sensors_to_disable.break_beam else "0")
@@ -2882,8 +2891,6 @@ class GUI_CLASS(ctk.CTk):
             self.sensor_blackout_info["sensors_to_disable"]["camera"].set("1" if sensor_blackout_challenge.sensors_to_disable.camera else "0")
             self.sensor_blackout_info["sensors_to_disable"]["logical_camera"].set("1" if sensor_blackout_challenge.sensors_to_disable.logical_camera else "0")
             self.set_challenge_condition_info_to_existing(sensor_blackout_challenge.condition)
-
-        self.sensor_blackout_info["duration"].trace_add('write',partial(self.update_sb_duration_label, duration_label))
 
         self.save_challenge_button.configure(text="Save sensor blackout challenge", command=partial(self.save_challenge, "sensor_blackout", index))
         self.enable_disable_sensor_blackout_save(1,1,1)
