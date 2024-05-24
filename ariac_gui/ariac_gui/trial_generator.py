@@ -3038,12 +3038,16 @@ class GUI_CLASS(ctk.CTk):
         self.destroy()
         
         if self.build_package:
-            ws_path = os.path.join(*[str(item) for item in get_package_prefix("ariac_gazebo").split("/")[:-2]])
-            os.chdir("/" + ws_path)
+            try:
+                ws_path = os.path.join(*[str(item) for item in get_package_prefix("ariac_gazebo").split("/")[:-2]])
             
-            build_cmd = "colcon build --packages-select ariac_gazebo"
-            subprocess.run(build_cmd, shell=True)
-                  
+                os.chdir("/" + ws_path)
+            
+                build_cmd = "colcon build --packages-select ariac_gazebo"
+                subprocess.run(build_cmd, shell=True)
+            except:
+                print("ERROR: Workspace not able to be found. Cannot build.")
+
     # =======================================================
     #                    Current File
     # =======================================================
