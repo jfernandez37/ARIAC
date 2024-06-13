@@ -1155,8 +1155,32 @@ class GUI_CLASS(ctk.CTk):
 
     def auto_fill_bins(self):
         for b in [1,2, 5, 6]:
-            self.multiple_random_parts(f"bin{b}", [1,3,5,7,9], False if b != 6 else True)
-            self.multiple_random_parts(f"bin{b}", [2,4,6,8], False if b != 6 else True)
+            for i in range(3):
+                self.multiple_random_parts(f"bin{b}", [i,i+1,i+2], False if b != 6 else True)
+        
+        present_part_types = []
+        for b in [1,2,5]:
+            for s in range(3):
+                t = copy(self.current_bin_parts[f"bin{b}"][s*3])
+                for p_t in PART_COLORS:
+                    t = t.replace(p_t.upper(),"")
+                if t not in present_part_types:
+                    present_part_types.append(t)
+                
+        while len(present_part_types) < 4:
+            for b in [1,2,5]:
+                for i in range(3):
+                    self.multiple_random_parts(f"bin{b}", [i*3+1,i*3+2,i*3+3], False if b != 6 else True)
+            
+            present_part_types.clear()
+            for b in [1,2,5]:
+                for s in range(3):
+                    t = copy(self.current_bin_parts[f"bin{b}"][s*3])
+                    for p_t in PART_COLORS:
+                        t = t.replace(p_t.upper(),"")
+                    if t not in present_part_types:
+                        present_part_types.append(t)
+                        
         self.bin_parts_counter.set(str(sum([sum([1 for part in self.current_bin_parts[key] if part!=""]) for key in self.current_bin_parts.keys()])))
                     
     # =======================================================
@@ -2469,25 +2493,30 @@ class GUI_CLASS(ctk.CTk):
         new_combined_task.station = agv_number
         
         combined_parts = []
+        temp_part_types = ["BATTERY", "PUMP", "REGULATOR", "SENSOR"]
         for i in range(num_parts):
             new_combined_part = PartMsg()
-            p = ""
-            if i == 0 and insufficient_part == "1":
-                p = self.find_absent_part()
-            elif i==1 and flipped_part == "1" and conveyor_part == "1":
-                p = self.current_conveyor_parts[-1]
-            elif i == 1 and flipped_part == "1":
-                p = self.current_bin_parts["bin6"][randint(0,8)]
-            elif i==1 and conveyor_part == "1":
-                p = self.current_conveyor_parts[randint(0,len(self.current_conveyor_parts))]
-            else:
-                p = self.current_bin_parts[f"bin{[1,2,5][randint(0,2)]}"][randint(0,8)]
-            part_color = copy(p).upper()
-            part_type = copy(p).upper()
-            for t in PART_TYPES:
-                part_color = part_color.replace(t.upper(),"")
-            for t in PART_COLORS:
-                part_type = part_type.replace(t.upper(),"")
+            part_type = "abc"
+            
+            while part_type not in temp_part_types:
+                p = ""
+                if i == 0 and insufficient_part == "1":
+                    p = self.find_absent_part()
+                elif i==1 and flipped_part == "1" and conveyor_part == "1":
+                    p = self.current_conveyor_parts[-1]
+                elif i == 1 and flipped_part == "1":
+                    p = self.current_bin_parts["bin6"][randint(0,8)]
+                elif i==1 and conveyor_part == "1":
+                    p = self.current_conveyor_parts[randint(0,len(self.current_conveyor_parts))]
+                else:
+                    p = self.current_bin_parts[f"bin{[1,2,5][randint(0,2)]}"][randint(0,8)]
+                part_color = copy(p).upper()
+                part_type = copy(p).upper()
+                for t in PART_TYPES:
+                    part_color = part_color.replace(t.upper(),"")
+                for t in PART_COLORS:
+                    part_type = part_type.replace(t.upper(),"")
+            temp_part_types.remove(part_type)
             self.parts_used_in_auto_orders.append((part_color, part_type,"combined"))
             new_combined_part.color = _part_color_ints[part_color]
             new_combined_part.type = _part_type_ints[part_type]
@@ -2750,7 +2779,6 @@ class GUI_CLASS(ctk.CTk):
         self.dropped_part_info['delay'].trace_add('write', partial(self.update_delay_label, delay_label))
 
         if dropped_part_challenge!=None:
-            print(dropped_part_challenge.drop_after_time)
             self.dropped_part_info["robot"].set(dropped_part_challenge.robot)
             self.dropped_part_info["color"].set(_part_color_str[dropped_part_challenge.part_to_drop.color])
             self.dropped_part_info["type"].set(_part_type_str[dropped_part_challenge.part_to_drop.type])
