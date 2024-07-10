@@ -43,7 +43,8 @@ from ariac_msgs.msg import (
 from geometry_msgs.msg import PoseStamped, Vector3
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from ariac_gui.utils import (build_competition_from_file, 
-                             require_num, 
+                             require_num,
+                             validate_time_limit, 
                              BinPart, 
                              ConveyorPart,
                              AssemblyPart,
@@ -51,7 +52,7 @@ from ariac_gui.utils import (build_competition_from_file,
                              CompetitionClass,
                              SLIDER_STR, 
                              SLIDER_VALUES, 
-                             ORDER_TYPES, validate_time_limit)
+                             ORDER_TYPES)
 
 FRAMEWIDTH=700
 FRAMEHEIGHT=900
@@ -1927,8 +1928,38 @@ class GUI_CLASS(ctk.CTk):
         else:
             self.save_order_button.configure(state=NORMAL)
     
+    def add_part_labels_to_sub_frame(self, frame):
+        ctk.CTkLabel(frame, text="Parts in environment:").pack()
+        bin_parts_found = []
+        for bin in ALL_BINS:
+            for part in self.bin_parts[bin]:
+                bin_parts_found.append(_part_color_str[part.part.color] + " " + _part_type_str[part.part.type] + ("" if part.flipped == "0" else "(flipped)"))
+        
+        bin_parts_found = sorted(list(set(bin_parts_found)))
+        if len(bin_parts_found) > 0:
+            ctk.CTkLabel(frame, text="Bin parts:").pack()
+            for part in bin_parts_found:
+                ctk.CTkLabel(frame, text=part, text_color=part.split(" ")[0]).pack()
+        
+        conveyor_parts_found = []
+        for part in self.conveyor_parts:
+            part: ConveyorPart
+            conveyor_parts_found.append(_part_color_str[part.part_lot.part.color] + " " + _part_type_str[part.part_lot.part.type] + ("" if int(part.flipped) == 0 else "(flipped)"))
+
+        conveyor_parts_found = sorted(list(set(conveyor_parts_found)))
+        if len(conveyor_parts_found) > 0:
+            ctk.CTkLabel(frame, text="Conveyor parts:").pack()
+            for part in conveyor_parts_found:
+                ctk.CTkLabel(frame, text=part, text_color=part.split(" ")[0]).pack()
+        elif len(bin_parts_found) == 0:
+            ctk.CTkLabel(frame, text="No parts have been added to the environment").pack()
+            
     def add_kitting_part(self, kitting_part = None, index = -1):
         add_k_part_wind = ctk.CTkToplevel()
+        add_k_part_wind.grid_rowconfigure(0, weight=1)
+        add_k_part_wind.grid_rowconfigure(100, weight=1)
+        add_k_part_wind.grid_columnconfigure(0, weight=1)
+        add_k_part_wind.grid_columnconfigure(6, weight=1)
         quadrant_options = self.get_remaining_quadrants()
         k_part_dict = {}
         k_part_dict["color"] = ctk.StringVar()
@@ -1947,20 +1978,26 @@ class GUI_CLASS(ctk.CTk):
             k_part_dict["quadrant"].set(quadrant_options[0])
 
         color_label = ctk.CTkLabel(add_k_part_wind, text="Select the color for the kitting part")
-        color_label.pack()
+        color_label.grid(column = LEFT_COLUMN, row = 1)
         color_menu = ctk.CTkOptionMenu(add_k_part_wind, variable=k_part_dict["color"],values=PART_COLORS)
-        color_menu.pack()
+        color_menu.grid(column = LEFT_COLUMN, row = 2)
         type_label = ctk.CTkLabel(add_k_part_wind, text="Select the type for the kitting part")
-        type_label.pack()
+        type_label.grid(column = LEFT_COLUMN, row = 3)
         type_menu = ctk.CTkOptionMenu(add_k_part_wind, variable=k_part_dict["pType"],values=PART_TYPES)
-        type_menu.pack()
+        type_menu.grid(column = LEFT_COLUMN, row = 4)
         quadrant_label = ctk.CTkLabel(add_k_part_wind, text="Select the quadrant for the kitting part")
-        quadrant_label.pack()
+        quadrant_label.grid(column = LEFT_COLUMN, row = 5)
         quadrant_menu = ctk.CTkOptionMenu(add_k_part_wind, variable=k_part_dict["quadrant"], values=quadrant_options)
-        quadrant_menu.pack()
+        quadrant_menu.grid(column = LEFT_COLUMN, row = 6)
 
+        available_parts_sub_frame = ctk.CTkScrollableFrame(add_k_part_wind)
+        available_parts_sub_frame.grid(column = RIGHT_COLUMN, row = 1, rowspan=6, padx = 10)
+        self.add_part_labels_to_sub_frame(available_parts_sub_frame)
+        
         save_button = ctk.CTkButton(add_k_part_wind, text="Save kitting part", command=partial(self.save_kitting_part, k_part_dict, add_k_part_wind, index))
-        save_button.pack(pady = 10)
+        save_button.grid(column = LEFT_COLUMN, columnspan = 3, row = 7, pady = 10)
+        cancel_button = ctk.CTkButton(add_k_part_wind, text="Cancel", command=add_k_part_wind.destroy)
+        cancel_button.grid(column = LEFT_COLUMN, columnspan = 3, row = 8, pady = 10)
         add_k_part_wind.mainloop()
 
     def save_kitting_part(self, k_part_dict, window, index):
@@ -2101,6 +2138,7 @@ class GUI_CLASS(ctk.CTk):
 
     def add_assembly_part(self, assembly_part = None, index = -1):
         add_a_part_wind = ctk.CTkToplevel()
+        
         available_part_types = self.part_types_available()
         edit_flag = False
         a_part_dict = {}
@@ -2217,6 +2255,11 @@ class GUI_CLASS(ctk.CTk):
     
     def add_combined_part(self, combined_part = None, index = -1):
         add_c_part_wind = ctk.CTkToplevel()
+        add_c_part_wind.grid_rowconfigure(0, weight=1)
+        add_c_part_wind.grid_rowconfigure(100, weight=1)
+        add_c_part_wind.grid_columnconfigure(0, weight=1)
+        add_c_part_wind.grid_columnconfigure(6, weight=1)
+        
         available_part_types = self.part_types_available()
         c_part_dict = {}
         c_part_dict["color"] = ctk.StringVar()
@@ -2231,16 +2274,20 @@ class GUI_CLASS(ctk.CTk):
             available_part_types+=[_part_type_str[combined_part.type].lower()]
 
         color_label = ctk.CTkLabel(add_c_part_wind, text="Select the color for the assembly part")
-        color_label.pack()
+        color_label.grid(column = LEFT_COLUMN, row = 1)
         color_menu = ctk.CTkOptionMenu(add_c_part_wind, variable=c_part_dict["color"],values=PART_COLORS)
-        color_menu.pack()
+        color_menu.grid(column = LEFT_COLUMN, row = 2)
         type_label = ctk.CTkLabel(add_c_part_wind, text="Select the type for the combined part")
-        type_label.pack()
+        type_label.grid(column = LEFT_COLUMN, row = 3)
         type_menu = ctk.CTkOptionMenu(add_c_part_wind, variable=c_part_dict["pType"],values=available_part_types)
-        type_menu.pack()
+        type_menu.grid(column = LEFT_COLUMN, row = 4)
 
+        available_parts_sub_frame = ctk.CTkScrollableFrame(add_c_part_wind)
+        available_parts_sub_frame.grid(column = RIGHT_COLUMN, row = 1, rowspan=4, padx = 10)
+        self.add_part_labels_to_sub_frame(available_parts_sub_frame)
+        
         save_button = ctk.CTkButton(add_c_part_wind, text="Save combined part", command=partial(self.save_combined_part, c_part_dict, add_c_part_wind, index))
-        save_button.pack(pady = 10)
+        save_button.grid(column = LEFT_COLUMN, row = 5, pady = 10)
         add_c_part_wind.mainloop()
 
     def save_combined_part(self, c_part_dict, window, index):
