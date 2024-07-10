@@ -742,6 +742,7 @@ class GUI_CLASS(ctk.CTk):
             rotation_slider = ctk.CTkSlider(self.assembly_inserts_frame, from_=min(SLIDER_VALUES), to=max(SLIDER_VALUES),variable=self.assembly_insert_rotations[i], orientation="horizontal")
             self.assembly_inserts_widgets.append((station_label, rotation_slider))
             self.assembly_insert_rotations[i].trace_add('write', partial(self.nearest_slider_value_assembly_inserts,self.assembly_insert_rotations[i], rotation_slider,station_label, ASSEMBLY_STATIONS[i]))
+        self.assembly_inserts_widgets.append(ctk.CTkButton(self.assembly_inserts_frame, text="Set random values", command=self.random_rotations))
         self.activate_inserts_menu_button = ctk.CTkButton(self.assembly_inserts_frame, text="All assembly insert rotations are set to 0.0.\nIf you would like to change this, press this button", command=self.activate_inserts_menu)
         self.activate_inserts_menu_button.grid(row=1, column=1)
         
@@ -750,9 +751,10 @@ class GUI_CLASS(ctk.CTk):
             self.activate_inserts_menu_button.grid_forget()
         except:
             pass
-        for i in range(len(self.assembly_inserts_widgets)):
+        for i in range(len(ASSEMBLY_STATIONS)):
             self.assembly_inserts_widgets[i][0].grid(row = i+1, column = LEFT_COLUMN, padx = 10, pady = 15)
             self.assembly_inserts_widgets[i][1].grid(row = i+1, column = RIGHT_COLUMN, padx = 10, pady = 15)
+        self.assembly_inserts_widgets[-1].grid(row=7, column = LEFT_COLUMN, columnspan=3)
         filler_label = ctk.CTkLabel(self.assembly_inserts_frame, text = " "*60) # So the menu does not move when the labels change
         filler_label.grid(row = 10, column = LEFT_COLUMN)
     
