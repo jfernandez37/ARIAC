@@ -1933,12 +1933,13 @@ class GUI_CLASS(ctk.CTk):
         bin_parts_found = []
         part_count = {}
         for bin in ALL_BINS:
-            for part in self.bin_parts[bin]:
-                bin_parts_found.append(_part_color_str[part.part.color] + " " + _part_type_str[part.part.type] + ("" if part.flipped == "0" else "(flipped)"))
-                try:
-                    part_count[bin_parts_found[-1]] += 1
-                except:
-                    part_count[bin_parts_found[-1]] = 1
+            for slot in range(9):
+                if self.current_bin_parts[bin][slot]!="":
+                    bin_parts_found.append(_part_color_str[self.bin_parts[bin][slot].part.color] + " " + _part_type_str[self.bin_parts[bin][slot].part.type] + ("" if self.bin_parts[bin][slot].flipped == "0" else "(flipped)"))
+                    try:
+                        part_count[bin_parts_found[-1]] += 1
+                    except:
+                        part_count[bin_parts_found[-1]] = 1
         
         bin_parts_found = sorted(list(set(bin_parts_found)))
         if len(bin_parts_found) > 0:
@@ -1967,7 +1968,7 @@ class GUI_CLASS(ctk.CTk):
             for part in conveyor_parts_found:
                 ctk.CTkLabel(frame, text=part, text_color=part.split(" ")[0]).pack()
         elif len(bin_parts_found) == 0:
-            ctk.CTkLabel(frame, text="No parts have been added to the environment").pack()
+            ctk.CTkLabel(frame, text="No parts have been\nadded to the environment").pack()
             
     def add_kitting_part(self, kitting_part = None, index = -1):
         add_k_part_wind = ctk.CTkToplevel()
