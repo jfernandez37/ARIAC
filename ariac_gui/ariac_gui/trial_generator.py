@@ -307,6 +307,9 @@ class GUI_CLASS(ctk.CTk):
             var.trace_add('write', self.update_available_agvs)
 
         self.current_orders = []
+        
+        # To activate scroll wheel for kitting/combined part scrollable frame
+        self.temp_scrollable_frame = None
 
         # Challenges widgets
         self.current_challenges_widgets = []
@@ -2006,9 +2009,9 @@ class GUI_CLASS(ctk.CTk):
         quadrant_menu = ctk.CTkOptionMenu(add_k_part_wind, variable=k_part_dict["quadrant"], values=quadrant_options)
         quadrant_menu.grid(column = LEFT_COLUMN, row = 6)
 
-        available_parts_sub_frame = ctk.CTkScrollableFrame(add_k_part_wind)
-        available_parts_sub_frame.grid(column = RIGHT_COLUMN, row = 1, rowspan=6, padx = 10)
-        self.add_part_labels_to_sub_frame(available_parts_sub_frame)
+        self.temp_scrollable_frame = ctk.CTkScrollableFrame(add_k_part_wind)
+        self.temp_scrollable_frame.grid(column = RIGHT_COLUMN, row = 1, rowspan=6, padx = 10)
+        self.add_part_labels_to_sub_frame(self.temp_scrollable_frame)
         
         save_button = ctk.CTkButton(add_k_part_wind, text="Save kitting part", command=partial(self.save_kitting_part, k_part_dict, add_k_part_wind, index))
         save_button.grid(column = LEFT_COLUMN, columnspan = 3, row = 7, pady = 10)
@@ -2298,9 +2301,9 @@ class GUI_CLASS(ctk.CTk):
         type_menu = ctk.CTkOptionMenu(add_c_part_wind, variable=c_part_dict["pType"],values=available_part_types)
         type_menu.grid(column = LEFT_COLUMN, row = 4)
 
-        available_parts_sub_frame = ctk.CTkScrollableFrame(add_c_part_wind)
-        available_parts_sub_frame.grid(column = RIGHT_COLUMN, row = 1, rowspan=4, padx = 10)
-        self.add_part_labels_to_sub_frame(available_parts_sub_frame)
+        self.temp_scrollable_frame = ctk.CTkScrollableFrame(add_c_part_wind)
+        self.temp_scrollable_frame.grid(column = RIGHT_COLUMN, row = 1, rowspan=4, padx = 10)
+        self.add_part_labels_to_sub_frame(self.temp_scrollable_frame)
         
         save_button = ctk.CTkButton(add_c_part_wind, text="Save combined part", command=partial(self.save_combined_part, c_part_dict, add_c_part_wind, index))
         save_button.grid(column = LEFT_COLUMN, row = 5, pady = 10)
@@ -3922,6 +3925,8 @@ class GUI_CLASS(ctk.CTk):
             self.conveyor_sub_frame._parent_canvas.yview_scroll(int(-2), "units")
         elif self.notebook.index("current") == 6:
             self.challenges_sub_frame._parent_canvas.yview_scroll(int(-2), "units")
+        elif self.notebook.index("current") == 5 and self.temp_scrollable_frame != None:
+            self.temp_scrollable_frame._parent_canvas.yview_scroll(int(-2), "units")
     
     def mouse_wheel_down_current_file(self, event):
         if self.notebook.index("current") == 7:
@@ -3930,6 +3935,10 @@ class GUI_CLASS(ctk.CTk):
             self.conveyor_sub_frame._parent_canvas.yview_scroll(int(2), "units")
         elif self.notebook.index("current") == 6:
             self.challenges_sub_frame._parent_canvas.yview_scroll(int(2), "units")
+        elif self.notebook.index("current") == 5 and self.temp_scrollable_frame != None:
+            self.temp_scrollable_frame._parent_canvas.yview_scroll(int(2), "units")
+        else:
+            self.temp_scrollable_frame = None
 
     def switch_light_dark(self):
         if self.current_mode == "light":
