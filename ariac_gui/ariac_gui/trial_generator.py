@@ -1931,15 +1931,30 @@ class GUI_CLASS(ctk.CTk):
     def add_part_labels_to_sub_frame(self, frame):
         ctk.CTkLabel(frame, text="Parts in environment:").pack()
         bin_parts_found = []
+        part_count = {}
         for bin in ALL_BINS:
             for part in self.bin_parts[bin]:
                 bin_parts_found.append(_part_color_str[part.part.color] + " " + _part_type_str[part.part.type] + ("" if part.flipped == "0" else "(flipped)"))
+                try:
+                    part_count[bin_parts_found[-1]] += 1
+                except:
+                    part_count[bin_parts_found[-1]] = 1
         
         bin_parts_found = sorted(list(set(bin_parts_found)))
         if len(bin_parts_found) > 0:
-            ctk.CTkLabel(frame, text="Bin parts:").pack()
+            ctk.CTkLabel(frame, text="==========\nBin parts:\n==========").pack()
             for part in bin_parts_found:
-                ctk.CTkLabel(frame, text=part, text_color=part.split(" ")[0]).pack()
+                s = str(part_count[part]) + " " + part
+                if part_count[part] > 1:
+                    s: str
+                    if "(flipped)" in s:
+                        s.replace("(flipped)", "s(flipped)")
+                    elif s[-1] == "y":
+                        s = s[:-1]
+                        s += "ies"
+                    else:
+                        s += "s"
+                ctk.CTkLabel(frame, text=s, text_color=part.split(" ")[0]).pack()
         
         conveyor_parts_found = []
         for part in self.conveyor_parts:
@@ -1948,7 +1963,7 @@ class GUI_CLASS(ctk.CTk):
 
         conveyor_parts_found = sorted(list(set(conveyor_parts_found)))
         if len(conveyor_parts_found) > 0:
-            ctk.CTkLabel(frame, text="Conveyor parts:").pack()
+            ctk.CTkLabel(frame, text="===============\nConveyor parts:\n===============").pack()
             for part in conveyor_parts_found:
                 ctk.CTkLabel(frame, text=part, text_color=part.split(" ")[0]).pack()
         elif len(bin_parts_found) == 0:
