@@ -677,7 +677,7 @@ class GUI_CLASS(ctk.CTk):
         self.kitting_tray_canvas.create_window(((tray_coords["kts_2"][0]+tray_coords["kts_2"][2])//2,555),window=ctk.CTkLabel(self.kitting_tray_frame,text="kts_2"))
         self.kitting_tray_canvas.grid(row = 3,column = MIDDLE_COLUMN, sticky = "we")
         self.random_kitting_trays_button = ctk.CTkButton(self.kitting_tray_frame, text="Random Kitting Trays", command=self.randomize_kitting_trays)
-        self.random_kitting_trays_button.grid(row=4, column=LEFT_COLUMN, columnspan=3)
+        self.random_kitting_trays_button.grid(row=4, column=LEFT_COLUMN, columnspan=3, pady=10)
     
     def randomize_kitting_trays(self):
         for i in range(6):
