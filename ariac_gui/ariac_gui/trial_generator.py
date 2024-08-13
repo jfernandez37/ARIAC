@@ -212,9 +212,11 @@ class GUI_CLASS(ctk.CTk):
 
         # Kitting tray info
         self.kitting_tray_selections = [ctk.StringVar() for _ in range(6)]
+        self.kitting_tray_update_traces = [None] * len(self.kitting_tray_selections)
+        self.kitting_tray_show_traces = [None] * len(self.kitting_tray_selections)
         for i in range(len(self.kitting_tray_selections)):
-            self.kitting_tray_selections[i].trace_add('write', self.update_current_file_label)
-            self.kitting_tray_selections[i].trace_add('write', self.show_kitting_trays)
+            self.kitting_tray_update_traces[i] = self.kitting_tray_selections[i].trace_add('write', self.update_current_file_label)
+            self.kitting_tray_show_traces[i] = self.kitting_tray_selections[i].trace_add('write', self.show_kitting_trays)
         self.available_kitting_trays = []
         self.kitting_tray_canvas_widgets = []
         self.kitting_tray_ratio = 5/7
@@ -674,6 +676,18 @@ class GUI_CLASS(ctk.CTk):
         self.kitting_tray_canvas.create_window(((tray_coords["kts_1"][0]+tray_coords["kts_1"][2])//2,555),window=ctk.CTkLabel(self.kitting_tray_frame,text="kts_1"))
         self.kitting_tray_canvas.create_window(((tray_coords["kts_2"][0]+tray_coords["kts_2"][2])//2,555),window=ctk.CTkLabel(self.kitting_tray_frame,text="kts_2"))
         self.kitting_tray_canvas.grid(row = 3,column = MIDDLE_COLUMN, sticky = "we")
+        self.random_kitting_trays_button = ctk.CTkButton(self.kitting_tray_frame, text="Random Kitting Trays", command=self.randomize_kitting_trays)
+        self.random_kitting_trays_button.grid(row=4, column=LEFT_COLUMN, columnspan=3)
+    
+    def randomize_kitting_trays(self):
+        for i in range(6):
+            self.kitting_tray_selections[i].trace_remove('write', self.kitting_tray_update_traces[i])
+            self.kitting_tray_selections[i].trace_remove('write', self.kitting_tray_show_traces[i])
+            self.kitting_tray_selections[i].set(KITTING_TRAY_OPTIONS[randint(0, len(KITTING_TRAY_OPTIONS)-1)])
+            self.kitting_tray_update_traces[i] = self.kitting_tray_selections[i].trace_add('write', self.update_current_file_label)
+            self.kitting_tray_show_traces[i] = self.kitting_tray_selections[i].trace_add('write', self.show_kitting_trays)
+        self.update_current_file_label(None, None, None)
+        self.show_kitting_trays(None, None, None)
     
     def random_kitting_trays(self):
         available_slots = [i for i in range(6)]
@@ -868,7 +882,7 @@ class GUI_CLASS(ctk.CTk):
         self.bin_selection.trace_add('write',partial(self.update_map,bin_map_canvas, self.bin_selection))
         self.bin_parts_counter.trace_add('write',partial(self.update_bin_grid, self.bin_selection,self.bin_parts_canvas,self.bin_parts_frame))
         self.bin_parts_counter.trace_add('write',partial(self.update_map,bin_map_canvas, self.bin_selection))
-    
+        
     def clear_all_bins(self):
         for i in range(1,9):
             self.current_bin_parts[f"bin{i}"] = ["" for _ in range(9)]
