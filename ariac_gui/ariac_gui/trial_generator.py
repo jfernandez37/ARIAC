@@ -855,6 +855,7 @@ class GUI_CLASS(ctk.CTk):
         assembly_stations_label = ctk.CTkLabel(self.bin_parts_frame,text="↑↑↑ Assembly Stations ↑↑↑")
         assembly_stations_label.grid(column = MIDDLE_COLUMN, columnspan = 2,row=3)
         bin_map_canvas = Canvas(self.bin_parts_frame, height = 250, width=255,bd = 0, highlightthickness=0)
+        bin_map_canvas.bind('<Button-1>', self.bin_map_clicked)
         self.all_canvases.append(bin_map_canvas)
         self.show_map(bin_map_canvas, self.bin_selection)
         bin_map_canvas.grid(column=RIGHT_COLUMN, sticky="we",row = 4,padx=25)
@@ -882,6 +883,21 @@ class GUI_CLASS(ctk.CTk):
         self.bin_selection.trace_add('write',partial(self.update_map,bin_map_canvas, self.bin_selection))
         self.bin_parts_counter.trace_add('write',partial(self.update_bin_grid, self.bin_selection,self.bin_parts_canvas,self.bin_parts_frame))
         self.bin_parts_counter.trace_add('write',partial(self.update_map,bin_map_canvas, self.bin_selection))
+        
+    def bin_map_clicked(self, event):
+        bin_coordinates = {"bin8":[2,52,47,97],
+                           "bin7":[57,52,102,97],
+                           "bin5":[2,107,47,152],
+                           "bin6":[57,107,102,152],
+                           "bin3":[152,52,197,97],
+                           "bin4":[207,52,250,97],
+                           "bin2":[152,107,197,152],
+                           "bin1":[207,107,252,152]}
+        
+        for bin_id, coord in bin_coordinates.items():
+            if coord[0] < event.x < coord[2] and coord[1] < event.y < coord[3]:
+                self.bin_selection.set(bin_id)
+                break
         
     def clear_all_bins(self):
         for i in range(1,9):
