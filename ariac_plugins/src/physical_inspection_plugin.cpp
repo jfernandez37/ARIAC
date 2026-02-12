@@ -351,6 +351,28 @@ void PhysicalInspectionPlugin::validate_report(const ariac_interfaces::msg::Insp
 
   auto cell = cells_on_conveyor[reported_index].cell_component.value();
 
+  for (const ariac_interfaces::msg::CellDefect &reported_defect : report.defects) {
+    // Check if defect matches any defect in defect list
+    gzmsg << "Reported Defect:\n";
+    switch (reported_defect.defect_type)
+    {
+    case 1:
+      gzmsg << "\t - Type: Dent\n";
+      break;
+    case 2:
+      gzmsg << "\t - Type: Bulge\n";
+      break;
+    case 3:
+      gzmsg << "\t - Type: Scratch\n";
+      break;
+    default:
+      gzmsg << "\tCould not find defect type\n";
+      break;
+    }
+    gzmsg << "\t   Absolute theta: " << reported_defect.theta << "\n";
+    gzmsg << "\t   Z: " << reported_defect.z << "\n";
+  }
+
   if (report.passed != cell.defective) { 
     gzmsg << "Inspection report correct\n";
     inspection_results.num_correct_reports++; 
@@ -360,6 +382,31 @@ void PhysicalInspectionPlugin::validate_report(const ariac_interfaces::msg::Insp
 
   if (defect_info.find(cell.defect_type) == defect_info.end()) {
     gzwarn << "Defect info for this defect type not in config\n";
+    std::ofstream log_file("/tmp/inspection_report.log", std::ios::app);
+
+    log_file << "======================================================\n" <<cell.cell_name << ":\nDEFECT INFO FOR THIS DEFECT TYPE NOT IN CONFIG\n";
+    for (const ariac_interfaces::msg::CellDefect &reported_defect : report.defects) {
+      // Check if defect matches any defect in defect list
+      log_file << "Reported Defect:\n";
+      switch (reported_defect.defect_type)
+      {
+      case 1:
+        log_file << "\t - Type: Dent\n";
+        break;
+      case 2:
+        log_file << "\t - Type: Bulge\n";
+        break;
+      case 3:
+        log_file << "\t - Type: Scratch\n";
+        break;
+      default:
+        log_file << "\tCould not find defect type\n";
+        break;
+      }
+      log_file << "\t   Absolute theta: " << reported_defect.theta << "\n";
+      log_file << "\t   Z: " << reported_defect.z << "\n";
+    }
+    log_file << "======================================================\n\n\n";
     return;
   }
 
@@ -369,6 +416,31 @@ void PhysicalInspectionPlugin::validate_report(const ariac_interfaces::msg::Insp
 
   if (report.defects.empty()) {
     gzmsg << "No defects reported\n";
+    std::ofstream log_file("/tmp/inspection_report.log", std::ios::app);
+
+    log_file << "======================================================\n" <<cell.cell_name << ":\n NO DEFECTS\n";
+    for (const ariac_interfaces::msg::CellDefect &reported_defect : report.defects) {
+      // Check if defect matches any defect in defect list
+      log_file << "Reported Defect:\n";
+      switch (reported_defect.defect_type)
+      {
+      case 1:
+        log_file << "\t - Type: Dent\n";
+        break;
+      case 2:
+        log_file << "\t - Type: Bulge\n";
+        break;
+      case 3:
+        log_file << "\t - Type: Scratch\n";
+        break;
+      default:
+        log_file << "\tCould not find defect type\n";
+        break;
+      }
+      log_file << "\t   Absolute theta: " << reported_defect.theta << "\n";
+      log_file << "\t   Z: " << reported_defect.z << "\n";
+    }
+    log_file << "======================================================\n\n\n";
     return;
   } else if (report.defects.size() != defect_list.size()) {
     gzmsg << "Incorrect number of defects reported\n";
@@ -378,7 +450,9 @@ void PhysicalInspectionPlugin::validate_report(const ariac_interfaces::msg::Insp
   for (const ariac_interfaces::msg::CellDefect &reported_defect : report.defects) {
     // Check if defect matches any defect in defect list
     for (const ariac_interfaces::msg::CellDefect &defect : defect_list) {
-      if (reported_defect.defect_type != defect.defect_type) { continue; }
+      if (reported_defect.defect_type != defect.defect_type) {
+        continue; 
+      }
       
       // Check if location is correct
       bool height_correct = abs(reported_defect.z - defect.z) <= report_height_threshold;
@@ -399,6 +473,33 @@ void PhysicalInspectionPlugin::validate_report(const ariac_interfaces::msg::Insp
   if (num_correct_defects == defect_list.size()) {
     gzmsg << "Inspection report classification correct\n";
     inspection_results.num_correct_report_classifications++;
+  } else {
+    gzmsg << "Inspection report classification incorrect. Number of correct defects: " << num_correct_defects <<"\n\n\n\n\n\n\n\n";
+    std::ofstream log_file("/home/jtf4/inspection_report.log", std::ios::app);
+
+    log_file << "======================================================\n" <<cell.cell_name << ":\nInspection report classification incorrect. Number of correct defects: " << num_correct_defects << "\n";
+    for (const ariac_interfaces::msg::CellDefect &reported_defect : report.defects) {
+      // Check if defect matches any defect in defect list
+      log_file << "Reported Defect:\n";
+      switch (reported_defect.defect_type)
+      {
+      case 1:
+        log_file << "\t - Type: Dent\n";
+        break;
+      case 2:
+        log_file << "\t - Type: Bulge\n";
+        break;
+      case 3:
+        log_file << "\t - Type: Scratch\n";
+        break;
+      default:
+        log_file << "\tCould not find defect type\n";
+        break;
+      }
+      log_file << "\t   Absolute theta: " << reported_defect.theta << "\n";
+      log_file << "\t   Z: " << reported_defect.z << "\n";
+    }
+    log_file << "======================================================\n\n\n";
   }
 }
 

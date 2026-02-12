@@ -26,6 +26,29 @@ foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
   find_package(${Dependency} REQUIRED)
 endforeach()
 
+# ======================================================================
+# Ariac Components (single shared library)
+# ======================================================================
+
+add_library(AriacComponents SHARED
+  src/ariac_components/cell.cpp
+  src/ariac_components/feed_results.cpp
+  src/ariac_components/inspection_results.cpp
+  src/ariac_components/kit.cpp
+  src/ariac_components/module.cpp
+  src/ariac_components/penalty.cpp
+  src/ariac_components/shelf_slot.cpp
+  src/ariac_components/trial.cpp
+)
+target_include_directories(AriacComponents PUBLIC include)
+ament_target_dependencies(AriacComponents
+  ${THIS_PACKAGE_INCLUDE_DEPENDS}
+)
+
+# ==============================================================================
+# PLUGINS
+# ==============================================================================
+
 # PathVelocityPlanner
 add_library(PathVelocityPlanner SHARED src/velocity_planner.cpp)
 target_include_directories(PathVelocityPlanner PUBLIC include)
@@ -58,7 +81,6 @@ target_link_libraries(AgvMotionPlugin PathVelocityPlanner)
 # AGV Tray Interface Plugin
 add_library(AgvTrayInterfacePlugin SHARED src/agv_tray_interface_plugin.cpp)
 target_include_directories(AgvTrayInterfacePlugin PUBLIC include)
-
 ament_target_dependencies(AgvTrayInterfacePlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -66,7 +88,6 @@ ament_target_dependencies(AgvTrayInterfacePlugin
 # Bottom Shell Plugin
 add_library(BottomShellPlugin SHARED src/bottom_shell_plugin.cpp)
 target_include_directories(BottomShellPlugin PUBLIC include)
-
 ament_target_dependencies(BottomShellPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -74,7 +95,6 @@ ament_target_dependencies(BottomShellPlugin
 # Cell Feed Plugin
 add_library(CellFeedPlugin SHARED src/cell_feed_plugin.cpp)
 target_include_directories(CellFeedPlugin PUBLIC include)
-
 ament_target_dependencies(CellFeedPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -85,7 +105,6 @@ target_link_libraries(CellFeedPlugin
 # Cheat Tools Plugin
 add_library(CheatToolsPlugin SHARED src/cheat_tools_plugin.cpp)
 target_include_directories(CheatToolsPlugin PUBLIC include)
-
 ament_target_dependencies(CheatToolsPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -107,7 +126,6 @@ target_link_libraries(CompetitionManagerPlugin
 # Contact Plugin
 add_library(ContactPlugin SHARED src/contact_plugin.cpp)
 target_include_directories(ContactPlugin PUBLIC include)
-
 ament_target_dependencies(ContactPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -115,7 +133,6 @@ ament_target_dependencies(ContactPlugin
 # Entity Disposal Plugin
 add_library(EntityDisposalPlugin SHARED src/entity_disposal_plugin.cpp)
 target_include_directories(EntityDisposalPlugin PUBLIC include)
-
 ament_target_dependencies(EntityDisposalPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -123,7 +140,6 @@ ament_target_dependencies(EntityDisposalPlugin
 # Image Plugin
 add_library(ImagePlugin SHARED src/image_plugin.cpp)
 target_include_directories(ImagePlugin PUBLIC include)
-
 ament_target_dependencies(ImagePlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -131,7 +147,6 @@ ament_target_dependencies(ImagePlugin
 # Kit Tray Plugin
 add_library(KitTrayPlugin SHARED src/kit_tray_plugin.cpp)
 target_include_directories(KitTrayPlugin PUBLIC include)
-
 ament_target_dependencies(KitTrayPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -139,7 +154,6 @@ ament_target_dependencies(KitTrayPlugin
 # Linear Conveyor Plugin
 add_library(LinearConveyorPlugin SHARED src/linear_conveyor_plugin.cpp)
 target_include_directories(LinearConveyorPlugin PUBLIC include)
-
 ament_target_dependencies(LinearConveyorPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -147,7 +161,6 @@ ament_target_dependencies(LinearConveyorPlugin
 # Physical Inspection Plugin
 add_library(PhysicalInspectionPlugin SHARED src/physical_inspection_plugin.cpp)
 target_include_directories(PhysicalInspectionPlugin PUBLIC include)
-
 ament_target_dependencies(PhysicalInspectionPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -158,7 +171,6 @@ target_link_libraries(PhysicalInspectionPlugin
 # Ray Sensor Plugin
 add_library(RaySensorPlugin SHARED src/ray_sensor_plugin.cpp)
 target_include_directories(RaySensorPlugin PUBLIC include)
-
 ament_target_dependencies(RaySensorPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -166,7 +178,6 @@ ament_target_dependencies(RaySensorPlugin
 # Recording Plugin
 add_library(RecordingPlugin SHARED src/recording_plugin.cpp)
 target_include_directories(RecordingPlugin PUBLIC include)
-
 ament_target_dependencies(RecordingPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -174,7 +185,6 @@ ament_target_dependencies(RecordingPlugin
 # Robot Collision Plugin
 add_library(RobotCollisionPlugin SHARED src/robot_collision_plugin.cpp)
 target_include_directories(RobotCollisionPlugin PUBLIC include)
-
 ament_target_dependencies(RobotCollisionPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -182,7 +192,6 @@ ament_target_dependencies(RobotCollisionPlugin
 # Shell Insertion Plugin
 add_library(ShellInsertionPlugin SHARED src/shell_insertion_plugin.cpp)
 target_include_directories(ShellInsertionPlugin PUBLIC include)
-
 ament_target_dependencies(ShellInsertionPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -190,7 +199,6 @@ ament_target_dependencies(ShellInsertionPlugin
 # Status Light Plugin
 add_library(StatusLightPlugin SHARED src/status_light_plugin.cpp)
 target_include_directories(StatusLightPlugin PUBLIC include)
-
 ament_target_dependencies(StatusLightPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -198,7 +206,6 @@ ament_target_dependencies(StatusLightPlugin
 # TF Publisher Plugin
 add_library(TFPublisherPlugin SHARED src/tf_publisher_plugin.cpp)
 target_include_directories(TFPublisherPlugin PUBLIC include)
-
 ament_target_dependencies(TFPublisherPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -206,7 +213,6 @@ ament_target_dependencies(TFPublisherPlugin
 # Tool Changer Plugin
 add_library(ToolChangerPlugin SHARED src/tool_changer_plugin.cpp)
 target_include_directories(ToolChangerPlugin PUBLIC include)
-
 ament_target_dependencies(ToolChangerPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -214,7 +220,6 @@ ament_target_dependencies(ToolChangerPlugin
 # Tool Stand Plugin
 add_library(ToolStandPlugin SHARED src/tool_stand_plugin.cpp)
 target_include_directories(ToolStandPlugin PUBLIC include)
-
 ament_target_dependencies(ToolStandPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -222,7 +227,6 @@ ament_target_dependencies(ToolStandPlugin
 # Top Shell Plugin
 add_library(TopShellPlugin SHARED src/top_shell_plugin.cpp)
 target_include_directories(TopShellPlugin PUBLIC include)
-
 ament_target_dependencies(TopShellPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -230,7 +234,6 @@ ament_target_dependencies(TopShellPlugin
 # Vacuum Tool Plugin
 add_library(VacuumToolPlugin SHARED src/vacuum_tool_plugin.cpp)
 target_include_directories(VacuumToolPlugin PUBLIC include)
-
 ament_target_dependencies(VacuumToolPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -238,7 +241,6 @@ ament_target_dependencies(VacuumToolPlugin
 # Voltage Tester Plugin
 add_library(VoltageTesterPlugin SHARED src/voltage_tester_plugin.cpp)
 target_include_directories(VoltageTesterPlugin PUBLIC include)
-
 ament_target_dependencies(VoltageTesterPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
@@ -246,13 +248,16 @@ ament_target_dependencies(VoltageTesterPlugin
 # Welder Plugin
 add_library(WelderPlugin SHARED src/welder_plugin.cpp)
 target_include_directories(WelderPlugin PUBLIC include)
-
 ament_target_dependencies(WelderPlugin
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
 
+# ==============================================================================
+# LINKING AND INSTALLATION
+# ==============================================================================
 
-ament_export_libraries(
+# 1. Define the list of plugins FIRST
+set(ARIAC_PLUGIN_TARGETS
   AgvMotionPlugin
   AgvTrayInterfacePlugin
   BottomShellPlugin
@@ -260,12 +265,10 @@ ament_export_libraries(
   CheatToolsPlugin
   CompetitionManagerPlugin
   ContactPlugin
-  DatabaseManager
   EntityDisposalPlugin
   ImagePlugin
   KitTrayPlugin
   LinearConveyorPlugin
-  PathVelocityPlanner
   PhysicalInspectionPlugin
   RaySensorPlugin
   RecordingPlugin
@@ -281,6 +284,28 @@ ament_export_libraries(
   WelderPlugin
 )
 
+# 2. Link all plugins to the AriacComponents library
+#    This is what fixes the "undefined symbol" error.
+foreach(tgt IN LISTS ARIAC_PLUGIN_TARGETS)
+  if(TARGET ${tgt})
+    target_link_libraries(${tgt} AriacComponents)
+  endif()
+endforeach()
+
+# 3. Set RPATH (Optional, but good for local development)
+foreach(tgt IN LISTS ARIAC_PLUGIN_TARGETS)
+  if(TARGET ${tgt})
+    set_target_properties(${tgt} PROPERTIES INSTALL_RPATH "\$ORIGIN")
+  endif()
+endforeach()
+
+# 4. Exports
+ament_export_libraries(
+  ${ARIAC_PLUGIN_TARGETS}
+  AriacComponents
+)
+
+# 5. Install Targets
 install(
   TARGETS
     PathVelocityPlanner
@@ -291,30 +316,8 @@ install(
 
 install(
   TARGETS
-    AgvMotionPlugin
-    AgvTrayInterfacePlugin
-    BottomShellPlugin
-    CellFeedPlugin
-    CheatToolsPlugin
-    CompetitionManagerPlugin
-    ContactPlugin
-    EntityDisposalPlugin
-    ImagePlugin
-    KitTrayPlugin
-    LinearConveyorPlugin
-    PhysicalInspectionPlugin
-    RaySensorPlugin
-    RecordingPlugin
-    RobotCollisionPlugin
-    ShellInsertionPlugin
-    StatusLightPlugin
-    TFPublisherPlugin
-    ToolChangerPlugin
-    ToolStandPlugin
-    TopShellPlugin
-    VacuumToolPlugin
-    VoltageTesterPlugin
-    WelderPlugin
+    ${ARIAC_PLUGIN_TARGETS}
+    AriacComponents
   DESTINATION
     lib/${PROJECT_NAME}
 )

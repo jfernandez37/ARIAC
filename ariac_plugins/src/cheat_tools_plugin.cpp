@@ -1,4 +1,5 @@
 #include "ariac_plugins/cheat_tools_plugin.hpp"
+#include <fstream>
 
 GZ_ADD_PLUGIN(
   ariac_plugins::CheatToolsPlugin,

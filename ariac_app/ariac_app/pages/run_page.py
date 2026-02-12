@@ -37,7 +37,7 @@ class RunPage:
             ui.navigate.to("/")
             return
             
-        self.cmd = f"ros2 launch ariac_gz ariac.launch.py trial_config:={trial} user_config:={user_config} gz_log_level:=info headless:={headless} record:={record}"
+        self.cmd = f"ros2 launch ariac_gz ariac.launch.py trial_config:={trial} user_config:={user_config} gz_log_level:=info headless:={headless} record:={record} log_cell_info:=true"
         
         if db_path is not None:
             self.cmd += f" db_path:={db_path}"

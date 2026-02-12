@@ -126,6 +126,12 @@ void VacuumToolPlugin::PreUpdate(const gz::sim::UpdateInfo &,
 {
   switch (lock_state)
   {
+  case VacuumToolLockState::UNLOCKED: {
+    for(gz::sim::Joint joint : suction_cup_joints){
+      joint.SetVelocity(_ecm, {-0.0008});
+    }
+    break;
+  }
   case VacuumToolLockState::LOCK_REQUESTED: {
     // Get link entity for bottom shell
     auto model = _ecm.EntityByName(attach_shell_name);
@@ -203,8 +209,11 @@ void VacuumToolPlugin::vg_4_attach_cb(const TriggerReqPtr request, TriggerResPtr
     response->message = "Already holding object";
     return;
   }
+
+  gzmsg << "INSIDE ATTACH CB" << pad_contacts[1].model_name << "\t"<< pad_contacts[2].model_name << "\t"<< pad_contacts[3].model_name << "\t"<< pad_contacts[4].model_name << "\n\n\n";
   
   if ((!pad_contacts[1].in_contact && !pad_contacts[2].in_contact) || (!pad_contacts[3].in_contact && !pad_contacts[4].in_contact)) {
+    gzmsg << pad_contacts[1].model_name << "\t"<< pad_contacts[2].model_name << "\t"<< pad_contacts[3].model_name << "\t"<< pad_contacts[4].model_name << "\n\n\n";
     response->success = false;
     response->message = "Suction cups must be in contact with the shell";
     return;
@@ -337,8 +346,7 @@ bool VacuumToolPlugin::should_malfunction()
     return false;
   }
 
-  malfunction_active = std::find_if(
-    malfunctions.begin(), malfunctions.end(), 
+  malfunction_active = std::find_if(malfunctions.begin(), malfunctions.end(), 
     [this](const auto& p) { return !p.second && p.first == grasp_occurrence; }
   ) != malfunctions.end();
   

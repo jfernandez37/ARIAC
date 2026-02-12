@@ -1,10 +1,6 @@
 ^^^^^^^^^
 Changelog
 ^^^^^^^^^
-2025.3.4 (2026-02-06)
-----------------------
-* Fixed vacuum tool malfunction from not triggering correctly
-
 2025.3.3 (2026-01-30)
 ----------------------
 * Fixed high priority order announcement time scoring bug
